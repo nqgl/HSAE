@@ -11,9 +11,9 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
     try:
         wandb.init(project="autoencoders", entity="sae_all", config=cfg)
-        num_batches = cfg["num_tokens"] // cfg["batch_size"]
-        # model_num_batches = cfg["model_batch_size"] * num_batches
-        encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg["lr"], betas=(cfg["beta1"], cfg["beta2"]))
+        num_batches = cfg.num_tokens // cfg.batch_size
+        # model_num_batches = cfg.model_batch_size * num_batches
+        encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
         for i in tqdm.trange(num_batches):
