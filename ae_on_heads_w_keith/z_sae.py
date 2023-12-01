@@ -201,10 +201,10 @@ class Buffer():
         self.cfg :AutoEncoderConfig = cfg
         self.token_pointer = 0
         self.first = True
-        self.refresh()
-        self.refresh_ratio = 0.5
         self.all_tokens = tokens
+        self.refresh_ratio = 0.5
         self.model = model
+        self.refresh()
 
     @torch.no_grad()
     def refresh(self):
