@@ -1,0 +1,128 @@
+{
+    "os": "Linux-5.15.0-86-generic-x86_64-with-glibc2.35",
+    "python": "3.10.12",
+    "heartbeatAt": "2023-12-01T20:42:42.285004",
+    "startedAt": "2023-12-01T20:42:41.588266",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/home/g/mats/sae/wandb_test.py",
+    "codePathLocal": "wandb_test.py",
+    "codePath": "wandb_test.py",
+    "git": {
+        "remote": "git@github.com:nqgl/modified-SAE.git",
+        "commit": "07bc6b696d15023a36396beede3b48fa6a7f036a"
+    },
+    "email": "glemtaggart@gmail.com",
+    "root": "/home/g/mats/sae",
+    "host": "g000e",
+    "username": "g",
+    "executable": "/bin/python3",
+    "cpu_count": 8,
+    "cpu_count_logical": 16,
+    "cpu_freq": {
+        "current": 3.919000000000001,
+        "min": 1200.0,
+        "max": 3200.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 3.953,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.95,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.2,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.985,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.2,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.956,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.941,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.2,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.809,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.456,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.954,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.965,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.933,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.956,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.2,
+            "min": 1200.0,
+            "max": 3200.0
+        },
+        {
+            "current": 3.978,
+            "min": 1200.0,
+            "max": 3200.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 91.10977554321289,
+            "used": 32.0953254699707
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 3070 Laptop GPU",
+            "memory_total": 8589934592
+        }
+    ],
+    "memory": {
+        "total": 31.194068908691406
+    }
+}
