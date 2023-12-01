@@ -62,7 +62,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512)
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
-    all_tokens = z_sae.load_data(model, "spacerini/gpt2-outputs")
+    all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)
     train(encoder, cfg, buffer, model)
