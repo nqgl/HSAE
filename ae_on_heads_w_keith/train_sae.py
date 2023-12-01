@@ -5,7 +5,7 @@ import torch
 from calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 
-def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer):
+def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
    
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
 
@@ -23,7 +23,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l2_loss = encoder.l2_loss_cached
             l1_loss = encoder.l1_loss_cached
             l0_norm = encoder.l0_norm_cached # TODO condisder turning this off if is slows down calculation
-            loss = encoder.get_loss()
+            loss = encoder.get_loss(model, encoder, buffer)
             loss.backward()
             encoder.make_decoder_weights_and_grad_unit_norm()
             encoder_optim.step()
@@ -34,10 +34,10 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 wandb.log(loss_dict)
                 print(loss_dict)
             if (i) % 1000 == 0:
-                x = (get_recons_loss(local_encoder=encoder))
+                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
-                freqs = get_freqs(5, local_encoder=encoder)
+                freqs = get_freqs(model, encoder, buffer, 5, local_encoder=encoder)
                 act_freq_scores_list.append(freqs)
                 # histogram(freqs.log10(), marginal="box", histnorm="percent", title="Frequencies")
                 wandb.log({
@@ -48,12 +48,12 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 })
             if (i+1) % 30000 == 0:
                 encoder.save()
-                freqs = get_freqs(50, local_encoder=encoder)
+                freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
                 to_be_reset = (freqs<10**(-5.5))
                 wandb.log({"reset_neurons": to_be_reset.sum()})
 
                 print("Resetting neurons!", to_be_reset.sum())
-                re_init(to_be_reset, encoder)
+                re_init(model, encoder, buffer, to_be_reset, encoder)
     finally:
         encoder.save()
 
@@ -65,7 +65,7 @@ def main():
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)
-    train(encoder, cfg, buffer)
+    train(encoder, cfg, buffer, model)
 
 if __name__ == "__main__":
     main()
