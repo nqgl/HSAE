@@ -22,7 +22,7 @@ from transformer_lens import HookedTransformer, HookedTransformerConfig, Factore
 from functools import partial
 from collections import namedtuple
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 @dataclass
 class AutoEncoderConfig:
@@ -176,14 +176,15 @@ class AutoEncoder(nn.Module):
         version = self.get_version()
         torch.save(self.state_dict(), SAVE_DIR/(str(version)+".pt"))
         with open(SAVE_DIR/(str(version)+"_cfg.json"), "w") as f:
-            json.dump(self.cfg, f)
+            json.dump(asdict(self.cfg), f)
         print("Saved as version", version)
 
     @classmethod
     def load(cls, version):
-        self.cfg = (json.load(open(SAVE_DIR/(str(version)+"_cfg.json"), "r")))
-        pprint.pprint(self.cfg)
-        self = cls(cfg=self.cfg)
+        cfg = (json.load(open(SAVE_DIR/(str(version)+"_cfg.json"), "r")))
+        cfg = AutoEncoderConfig(**cfg)
+        pprint.pprint(cfg)
+        self = cls(cfg=cfg)
         self.load_state_dict(torch.load(SAVE_DIR/(str(version)+".pt")))
         return self
 
