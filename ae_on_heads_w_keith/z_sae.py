@@ -84,7 +84,7 @@ def shuffle_documents(all_tokens): # assuming the shape[0] is documents
     return all_tokens[torch.randperm(all_tokens.shape[0])]
 
 
-def load_data(model, dataset = "NeelNanda/c4-code-tokenized"):
+def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
     import os
     reshaped_name = dataset.split("/")[-1] + "_reshaped.pt"
     dataset_reshaped_path = os.path.join("/workspace/data/", reshaped_name)

@@ -1,6 +1,6 @@
 pytorch (duh)
 
-transformers
 transformer-lens
-datasets
-wandb
+pip install transformers
+pip install datasets
+pip install wandb
