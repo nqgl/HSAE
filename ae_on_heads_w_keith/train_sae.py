@@ -1,9 +1,9 @@
-import ae_on_heads_w_keith.z_sae as z_sae
+import z_sae
 import wandb
 import tqdm
 import torch
 from calculations_on_sae import get_recons_loss, get_freqs, re_init
-
+from transformer_lens import HookedTransformer
 
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer):
    
@@ -61,6 +61,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512)
     cfg = z_sae.post_init_cfg(ae_cfg)
+    z_sae.get_model(cfg)
     all_tokens = z_sae.load_data()
     encoder = z_sae.AutoEncoder(cfg)
     buffer = z_sae.Buffer(cfg, all_tokens, encoder)

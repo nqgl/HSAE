@@ -75,7 +75,7 @@ def default_cfg():
 
 def get_model(cfg):
     model = HookedTransformer.from_pretrained(cfg.model_name).to(DTYPES[cfg.enc_dtype]).to(cfg.device)
-
+    return model
 
 
 
