@@ -61,8 +61,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512)
     cfg = z_sae.post_init_cfg(ae_cfg)
-    z_sae.get_model(cfg)
-    all_tokens = z_sae.load_data()
+    model = z_sae.get_model(cfg)
+    all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
     buffer = z_sae.Buffer(cfg, all_tokens, encoder)
     train(encoder, cfg, buffer)
