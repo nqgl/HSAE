@@ -7,7 +7,7 @@ from transformer_lens import HookedTransformer
 
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer):
    
-    wandb.login(key="763967cb34da114063379b7b42fec47c0be2fdb8")
+    wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
 
     try:
         wandb.init(project="autoencoders", entity="hiibb", config=cfg)

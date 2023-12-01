@@ -93,8 +93,8 @@ def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
 
     
     if loading_data_first_time:
-        data = load_dataset(dataset, split="train", cache_dir="/workspace/cache/")
-        data.save_to_disk(os.path.join("/workspace/data/", dataset.split("/")[-1]+".hf"))
+        data = load_dataset(dataset, split="train", cache_dir=SAVE_DIR / "cache/")
+        data.save_to_disk(os.path.join(SAVE_DIR / "data/", dataset.split("/")[-1]+".hf"))
         data.set_format(type="torch", columns=["tokens"])
         all_tokens = data["tokens"]
         all_tokens.shape
