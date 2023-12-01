@@ -87,7 +87,7 @@ def shuffle_documents(all_tokens): # assuming the shape[0] is documents
 def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
     import os
     reshaped_name = dataset.split("/")[-1] + "_reshaped.pt"
-    dataset_reshaped_path = os.path.join("/workspace/data/", reshaped_name)
+    dataset_reshaped_path = SAVE_DIR / "data" / reshaped_name
     # if dataset exists loading_data_first_time=False
     loading_data_first_time = not os.path.exists(dataset_reshaped_path)
 
@@ -136,6 +136,8 @@ class AutoEncoder(nn.Module):
         self.cached_acts = None
 
     def forward(self, x, cache_l0 = True, cache_acts = False):
+        print(x.shape)
+        print(self.b_dec.shape)
         x_cent = x - self.b_dec
         acts = F.relu(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
