@@ -89,7 +89,7 @@ def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
     reshaped_name = dataset.split("/")[-1] + "_reshaped.pt"
     dataset_reshaped_path = SAVE_DIR / "data" / reshaped_name
     # if dataset exists loading_data_first_time=False
-    loading_data_first_time = not os.path.exists(dataset_reshaped_path)
+    loading_data_first_time = not dataset_reshaped_path.exists()
 
     
     if loading_data_first_time:
