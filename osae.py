@@ -14,7 +14,7 @@ class AutoEncoderConfig:
     d_dict :int
     l1_coeff :Optional[Union[float, torch.Tensor]]
     device :str = "cuda"
-    ae_id :str = "no_id"
+    ae_id :str = "no-id"
     l0l1 :bool = True
     l0l1_coeff :float = 0.01
     lo_coeff :float = 10
@@ -59,8 +59,13 @@ class AutoEncoder(nn.Module):
         x = self.project_in(x)
         x = self.encoder(x)
         x = self.dd_lin(x)
-        x = gradcool_functions.undying_relu_2phases(x + self.b_e, k = 0.0001, l = 0.03)
+        # x = (gradcool_functions.undying_relu_2phases(x + self.b_e, l = 0.01) \
+        
+        # x = gradcool_functions.undying_relu(x + self.b_e, l = 0.01, k = 0.01)
+
+        x = gradcool_functions.undying_relu(x + self.b_e, l = 0.01, k = 1)
         # x = F.relu(x + self.b_e)
+        # x = gradcool_functions.undying_relu_2phase_leaky_gradient(x + self.b_e, l = 0.0001)
         self.acts_cached = x
         return x
 
@@ -125,7 +130,7 @@ class AutoEncoder(nn.Module):
             l1_str = "tensor"
         else:
             l1_str = ratio_nice_str(l1_coeff)
-        folder_str = f"sae_id_{l1_str}_{ratio_nice_str(lr)}_{str(version)}"
+        folder_str = f"sae_v_{version}_id_{self.cfg.ae_id}"
         if not os.path.exists(os.path.join(directory, folder_str)):
             os.makedirs(os.path.join(directory, folder_str))
         modelfolder = os.path.join(directory, folder_str)
@@ -196,19 +201,43 @@ def find_maximizing_vec_length(ae, d_dict, device):
     vv = ae.decode(F.normalize(v_2max, dim=-1)).norm(dim=-1)
     return torch.max(vv).item()
 
+def show_heatmap_of_similarity(m, ae, encoder = True):
+    import seaborn as sns
+    import torch
+    import matplotlib.pyplot as plt
+    v = torch.eye(ae.cfg.d_dict, device="cuda")    
+    f = ae.decode(v)
+    # features, d_act -> features, d_dict
+    if encoder:
+        features_similarity = ae.encode(m)
+    else:
+        m = torch.nn.functional.normalize(m, dim=-2)
+        f = torch.nn.functional.normalize(f, dim=-2)
+        features_similarity = m @ f.T
+        features_similarity = torch.abs(features_similarity)
+    features_similarity = F.normalize(features_similarity, dim=-1)
+    if features_similarity.shape[-1] > features_similarity.shape[-2]:
+        features_similarity = features_similarity.transpose(-1, -2)
+    max_args = features_similarity.argmax(dim=-1)
+    argsort_max = max_args.argsort()
+    features_similarity = features_similarity[argsort_max, :]
+    plt.clf()
+    sns.heatmap(features_similarity.cpu().detach().numpy())
+    plt.pause(2)
 
 def main():
     import time
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
     device = torch.device("cuda")
-    d_act = 200
-    n_features = 550
-    d_dict = d_act * 3
-    avg_n_features = 6
-    l1_coeffs = torch.linspace(0.2, 0.4, d_dict, device=device)
-    cfg = AutoEncoderConfig(lr=3e-6, d_act=d_act, d_dict=d_dict, l1_coeff=0.1, l0l1_coeff=0, lo_coeff=100, l1_half_coeff=0)
+    d_act = 400
+    n_features = 2000
+    d_dict = d_act * 8
+    avg_n_features = 10
+    l1_variability_radius = 0
+    l1_coeffs = torch.linspace(1 - l1_variability_radius, 1 + l1_variability_radius, d_dict, device=device)
+    cfg = AutoEncoderConfig(lr=3e-4, d_act=d_act, d_dict=d_dict, l1_coeff=0.2, l0l1_coeff=0, lo_coeff=100, l1_half_coeff=0)
     ae = AutoEncoder(cfg)
-    ae.l1_coeffs = l1_coeffs
+    ae.l1_coeffs = l1_coeffs * cfg.l1_coeff
     ae.to(device)
     m = torch.randn(n_features, d_act, device=device) * 5
     # m = F.normalize(m, dim=-2)
@@ -220,12 +249,13 @@ def main():
     torch.set_printoptions(precision=3)
     n = 5000000
     d = {"max_vec": {}, "l2": {}, "l1": {}, "l0l1": {}, "l0": {}, "lo": {}}
-    plt.ion()
-    plt.show()
+    # plt.ion()
+    # plt.show()
     p_feature = avg_n_features / n_features
-    p_feature_distribution = torch.linspace(p_feature * 3 / 2, p_feature / 2, n_features, device=device)
+    p_feature_variability_radius = 0.5
+    p_feature_distribution = torch.linspace(p_feature * (1 + p_feature_variability_radius), p_feature * (1 - p_feature_variability_radius), n_features, device=device)
     for i in range(n):
-        x = torch.rand(10000, n_features, device=device)
+        x = torch.rand(250, n_features, device=device)
         b = 100
         # x = F.dropout(x, p=(1 - p_feature), training=True) * (p_feature)
         mask = torch.rand(x.shape, device=device) < p_feature_distribution
@@ -259,43 +289,46 @@ def main():
             d["l0l1"][i] = l0l1.item()
             d["l0"][i] = ae.get_l0_loss().sum().item()
             d["lo"][i] = lo.item() / cfg.lo_coeff
-        if i % 3000 == 0 and i > 0:
+
+        # if i % 3000 == 1500 and i > 0:
+        #     show_heatmap_of_similarity(m, ae, encoder = i % 6000 == 1500)
+        if i % 6000 == 50 and i > 0:
             window = 30
-            plt.clf()
-            plt.subplot(3, 2, 1)
-            plt.plot(list(d["l0l1"].keys())[-window:], list(d["l0l1"].values())[-window:], label="l0l1")
-            plt.plot(list(d["l0"].keys())[-window:], list(d["l0"].values())[-window:], label="l0")
-            plt.legend()
+            # plt.clf()
+            # plt.subplot(3, 2, 1)
+            # plt.plot(list(d["l0l1"].keys())[-window:], list(d["l0l1"].values())[-window:], label="l0l1")
+            # plt.plot(list(d["l0"].keys())[-window:], list(d["l0"].values())[-window:], label="l0")
+            # plt.legend()
 
-            plt.subplot(3, 2, 3)
-            plt.plot(list(d["l2"].keys())[-window:], list(d["l2"].values())[-window:], label="l2")
-            plt.plot(list(d["l1"].keys())[-window:], list(d["l1"].values())[-window:], label="l1")
-            plt.legend()
+            # plt.subplot(3, 2, 3)
+            # plt.plot(list(d["l2"].keys())[-window:], list(d["l2"].values())[-window:], label="l2")
+            # plt.plot(list(d["l1"].keys())[-window:], list(d["l1"].values())[-window:], label="l1")
+            # plt.legend()
 
-            plt.subplot(3, 2, 5)
-            plt.plot(list(d["lo"].keys())[-window:], list(d["lo"].values())[-window:], label="lo")
+            # plt.subplot(3, 2, 5)
+            # plt.plot(list(d["lo"].keys())[-window:], list(d["lo"].values())[-window:], label="lo")
+            # # plt.plot(list(d["max_vec"].keys()), list(d["max_vec"].values()), label="max_vec")
+            # plt.legend()
+
+
+            # plt.subplot(3, 2, 2)
+            # plt.plot(list(d["l0l1"].keys()), list(d["l0l1"].values()), label="l0l1")
+            # plt.plot(list(d["l0"].keys()), list(d["l0"].values()), label="l0")
+            # plt.legend()
+
+            # plt.subplot(3, 2, 4)
+            # plt.plot(list(d["l2"].keys()), list(d["l2"].values()), label="l2")
+            # plt.plot(list(d["l1"].keys()), list(d["l1"].values()), label="l1")
+            # plt.legend()
+
+            # plt.subplot(3, 2, 6)
+            # plt.plot(list(d["lo"].keys()), list(d["lo"].values()), label="lo")
             # plt.plot(list(d["max_vec"].keys()), list(d["max_vec"].values()), label="max_vec")
-            plt.legend()
+            # plt.legend()
 
 
-            plt.subplot(3, 2, 2)
-            plt.plot(list(d["l0l1"].keys()), list(d["l0l1"].values()), label="l0l1")
-            plt.plot(list(d["l0"].keys()), list(d["l0"].values()), label="l0")
-            plt.legend()
-
-            plt.subplot(3, 2, 4)
-            plt.plot(list(d["l2"].keys()), list(d["l2"].values()), label="l2")
-            plt.plot(list(d["l1"].keys()), list(d["l1"].values()), label="l1")
-            plt.legend()
-
-            plt.subplot(3, 2, 6)
-            plt.plot(list(d["lo"].keys()), list(d["lo"].values()), label="lo")
-            plt.plot(list(d["max_vec"].keys()), list(d["max_vec"].values()), label="max_vec")
-            plt.legend()
-
-
-            plt.draw()
-            plt.pause(1)
+            # plt.draw()
+            # plt.pause(1)
 
         if i % 10000 == 0 and i > 0:
             d["max_vec"][i] = find_maximizing_vec_length(ae, d_dict, device)

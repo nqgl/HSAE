@@ -52,7 +52,7 @@ def undying_relu(x, l=0.01, k=1):
     y_backward = y_backward1 + y_backward2 + y_backward3
     return y_backward + (y_forward - y_backward).detach()
 
-def undying_relu_extra_negative(x, l=0.001, k=1):
+def undying_relu_extra_negative(x, l=0.001, k=0.01):
     """x>0: normal relu
     0 > x > -k : gradient is scaled by l like a leaky relu but 2x gradient on negative side,
                      so it stays dead unless it's really needed
@@ -84,23 +84,23 @@ def undying_relu_2phase_leaky_gradient(x, l=0.01):
     y_backward = y_backward1 + y_backward2
     return y_backward + (y_forward - y_backward).detach()
 
-class UndyingReLU2Phases(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, input, k, l):
-        ctx.save_for_backward(input)
-        ctx.k = k
-        ctx.l = l
-        return input.clamp(min=0)
+# class UndyingReLU2Phases(torch.autograd.Function):
+#     @staticmethod
+#     def forward(ctx, input, k, l):
+#         ctx.save_for_backward(input)
+#         ctx.k = k
+#         ctx.l = l
+#         return input.clamp(min=0)
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        input, = ctx.saved_tensors
-        k = ctx.k
-        l = ctx.l
-        grad_input = grad_output.clone()
-        grad_input[input < 0] = torch.where(grad_output[input < 0] + k > 0, torch.tensor(0.0, device=grad_input.device), (grad_output[input < 0] + k) * l)
-        grad_input[input > 0] = grad_output[input > 0]
-        return grad_input, None, None
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         input, = ctx.saved_tensors
+#         k = ctx.k
+#         l = ctx.l
+#         grad_input = grad_output.clone()
+#         grad_input[input < 0] = torch.where(grad_output[input < 0] + k > 0, torch.tensor(0.0, device=grad_input.device), (grad_output[input < 0] + k) * l)
+#         grad_input[input > 0] = grad_output[input > 0]
+#         return grad_input, None, None
 
 # def undying_relu_2phases(x, l=0.001, k=0):
 #     return UndyingReLU2Phases.apply(x, k, l)

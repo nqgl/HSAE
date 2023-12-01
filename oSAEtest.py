@@ -3,10 +3,10 @@ from osae import AutoEncoder, AutoEncoderConfig
 # import __main__
 # setattr(__main__, "AutoEncoder", osae.AutoEncoder)
 import torch
-itern = 811
-ae = osae.AutoEncoder.load("./models", "sae_id_6-64_0-64_2", iter=itern)
+itern = None
+ae = osae.AutoEncoder.load("./models", "sae_v_2_id_no-id", iter=itern)
 ae.cuda()
-stats = osae.AutoEncoder.load_stats("./models", "sae_id_6-64_0-64_2", iter=itern)
+stats = osae.AutoEncoder.load_stats("./models", "sae_v_2_id_no-id", iter=itern)
 m = torch.tensor(stats["m"], device="cuda")
 print(stats.keys())
 # print("l2", stats["d"]["l2"])
@@ -15,28 +15,28 @@ ae.decode(v)
 print(m.shape)
 f = ae.decode(v)
 print(f.shape)
-m = torch.nn.functional.normalize(m, dim=-2)
 f = torch.nn.functional.normalize(f, dim=-2)
+m = torch.nn.functional.normalize(m, dim=-2)
 
-# for i in range(100, 0, -1):
-#     f1 = f[i, :]
-#     print(f1.shape)
-#     print(m @ f1)
-#     print(f1 @ m.T)
-#     print((m @ f1).shape)
+for i in range(20, 15, -1):
+    f1 = f[i, :]
+    print(f1.shape)
+    print(m @ f1)
+    print(f1 @ m.T)
+    print((m @ f1).shape)
 
-#     import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
-#     # Your existing code...
+    # Your existing code...
 
-#     result = m @ f1
+    result = m @ f1
 
-#     # Plotting the bar graph
-#     plt.bar(range(len(result)), result.cpu().detach().numpy())
-#     plt.xlabel('Index')
-#     plt.ylabel('Value')
-#     plt.title('m @ f1')
-#     plt.show()
+    # Plotting the bar graph
+    plt.bar(range(len(result)), result.cpu().detach().numpy())
+    plt.xlabel('Index')
+    plt.ylabel('Value')
+    plt.title('m @ f1')
+    plt.show()
 # heatmap of m @ f
 features_similarity = m @ f.T
 import seaborn as sns
