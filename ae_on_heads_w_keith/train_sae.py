@@ -23,7 +23,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l2_loss = encoder.l2_loss_cached
             l1_loss = encoder.l1_loss_cached
             l0_norm = encoder.l0_norm_cached # TODO condisder turning this off if is slows down calculation
-            loss = encoder.get_loss(model, encoder, buffer)
+            loss = encoder.get_loss()
             loss.backward()
             encoder.make_decoder_weights_and_grad_unit_norm()
             encoder_optim.step()
