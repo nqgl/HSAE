@@ -64,7 +64,7 @@ def main():
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
-    buffer = z_sae.Buffer(cfg, all_tokens, encoder)
+    buffer = z_sae.Buffer(cfg, all_tokens, model=model)
     train(encoder, cfg, buffer)
 
 if __name__ == "__main__":

@@ -56,7 +56,7 @@ class AutoEncoderConfig:
 
 
 DTYPES = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.float16}
-SAVE_DIR = Path("./workspace")
+SAVE_DIR = Path.home() / "workspace"
 if not SAVE_DIR.exists():
     SAVE_DIR.mkdir()
 
