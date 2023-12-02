@@ -5,6 +5,7 @@ import torch
 from calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import time
+
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
    
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
@@ -61,7 +62,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
 
 def main():
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512)
+    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, l1_coeff=1e-2)
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
