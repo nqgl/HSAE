@@ -207,8 +207,8 @@ class Buffer():
         self.all_tokens = tokens
         self.cfg.buffer_refresh_ratio = 0.9
         self.model = model
-        self.refresh()
         self.time_shuffling = 0
+        self.refresh()
 
     @torch.no_grad()
     def refresh(self):
