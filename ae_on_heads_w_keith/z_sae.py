@@ -50,6 +50,7 @@ class AutoEncoderConfig:
     act_name :str = None
     dict_size :int = None
     name :str = None
+    buffer_refresh_ratio :float = 0.9
     # TODO do I need to add?:
 
 # Ithink this is gelu_2 specific
@@ -203,7 +204,7 @@ class Buffer():
         self.token_pointer = 0
         self.first = True
         self.all_tokens = tokens
-        self.refresh_ratio = 0.9
+        self.cfg.buffer_refresh_ratio = 0.9
         self.model = model
         self.refresh()
 
@@ -214,7 +215,7 @@ class Buffer():
             if self.first:
                 num_batches = self.cfg.buffer_batches
             else:
-                num_batches = int(self.cfg.buffer_batches * self.refresh_ratio)
+                num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
             self.first = False
             for _ in range(0, num_batches, self.cfg.model_batch_size):
                 tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size]
@@ -244,7 +245,7 @@ class Buffer():
     def next(self):
         out = self.buffer[self.pointer:self.pointer+self.cfg.batch_size]
         self.pointer += self.cfg.batch_size
-        if self.pointer > int(self.buffer.shape[0] * self.refresh_ratio) - self.cfg.batch_size:
+        if self.pointer > int(self.buffer.shape[0] * self.cfg.buffer_refresh_ratio) - self.cfg.batch_size:
             # print("Refreshing the buffer!")
             self.refresh()
         return out
