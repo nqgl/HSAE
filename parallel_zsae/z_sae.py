@@ -122,15 +122,16 @@ class AutoEncoder(nn.Module):
         d_dict = cfg.dict_size
         dtype = DTYPES[cfg.enc_dtype]
         torch.manual_seed(cfg.seed)
-        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.l1_coeffs), cfg.act_size, d_dict, dtype=dtype)))
-        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.l1_coeffs), d_dict, cfg.act_size, dtype=dtype)))
-        self.b_enc = nn.Parameter(torch.zeros(d_dict, dtype=dtype))
-        self.b_dec = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
+        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), cfg.act_size, d_dict, dtype=dtype)))
+        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), d_dict, cfg.act_size, dtype=dtype)))
+        self.b_enc = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), d_dict, dtype=dtype))
+        self.b_dec = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), cfg.act_size, dtype=dtype))
 
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
         self.d_dict = d_dict
-        self.l1_coeffs = torch.tensor(cfg.l1_coeffs, device=cfg.device)
+        self.l1_coeffs = torch.tensor(cfg.l1_coeffs, device=cfg.device).reshape(1, -1, 1, 1)
+        self.lrs = torch.tensor(cfg.lrs, device=cfg.device).reshape(-1, 1, 1, 1)
         self.acts_cached = None
         self.l2_loss_cached = None
         self.l1_loss_cached = None
