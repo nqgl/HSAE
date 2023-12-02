@@ -64,7 +64,7 @@ def re_init(model, encoder, buffer, indices):
 def replacement_hook(acts, hook, encoder):
     print(acts.shape)
     if encoder.cfg.flatten_heads:
-        acts = einops.rearrange(acts, "batch seq_pos n_head d_head -> batch seq_pos (n_head d_head)")
+        acts = einops.rearrange(acts, "... n_head d_head -> ... (n_head d_head)")
     mlp_post_reconstr = encoder(acts)
     return mlp_post_reconstr
 
