@@ -23,7 +23,7 @@ from functools import partial
 from collections import namedtuple
 import time
 from dataclasses import dataclass, asdict
-import config_compatible_relu_choice
+from . import config_compatible_relu_choice
 
 
 @dataclass

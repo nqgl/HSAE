@@ -1,8 +1,8 @@
-import z_sae
+from . import z_sae
 import wandb
 import tqdm
 import torch
-from calculations_on_sae import get_recons_loss, get_freqs, re_init
+from .calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import time
 

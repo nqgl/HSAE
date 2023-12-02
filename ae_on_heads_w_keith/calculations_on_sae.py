@@ -1,6 +1,6 @@
 
 import torch
-import z_sae
+from . import z_sae
 from functools import partial
 import tqdm
 import einops

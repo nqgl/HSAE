@@ -1,4 +1,4 @@
-from .. import gradcool_functions
+import gradcool_functions
 import torch
 from functools import partial
 
@@ -6,7 +6,7 @@ from functools import partial
 nonlinearity_dict = {
     "relu" : torch.nn.functional.relu,
     "undying_relu" : gradcool_functions.undying_relu,
-    "undying_relu_2phase" : gradcool_functions.undying_relu_2phase,
+    "undying_relu_2phase" : gradcool_functions.undying_relu_2phases,
 }
 
 def cfg_to_nonlinearity(cfg):
