@@ -19,10 +19,10 @@ from transformer_lens.hook_points import (
     HookPoint,
 )  # Hooking utilities
 from transformer_lens import HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
-from functools import partial, field
+from functools import partial
 from collections import namedtuple
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from . import config_compatible_relu_choice
 from typing import List
 
