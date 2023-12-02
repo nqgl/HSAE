@@ -29,7 +29,7 @@ from . import config_compatible_relu_choice
 @dataclass
 class AutoEncoderConfig:
     seed :int = 49
-    batch_size :int = 1000
+    batch_size :int = 512
     buffer_mult :int = 10000
     lr :int = 3e-4
     num_tokens :int = int(2e9)
