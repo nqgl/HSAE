@@ -8,7 +8,8 @@ import einops
 
 @torch.no_grad()
 def get_recons_loss(model, encoder, buffer, num_batches=5, local_encoder=None):
-    local_encoder = encoder
+    if local_encoder is None:
+        local_encoder = encoder
     loss_list = []
     for i in range(num_batches):
         tokens = buffer.all_tokens[torch.randperm(len(buffer.all_tokens))[:encoder.cfg.model_batch_size]]
@@ -61,6 +62,7 @@ def re_init(model, encoder, buffer, indices):
 
 
 def replacement_hook(acts, hook, encoder):
+    print(acts.shape)
     if encoder.cfg.flatten_heads:
         acts = einops.rearrange(acts, "batch seq_pos n_head d_head -> batch seq_pos (n_head d_head)")
     mlp_post_reconstr = encoder(acts)
