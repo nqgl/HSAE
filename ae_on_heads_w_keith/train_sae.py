@@ -65,7 +65,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                      l1_coeff=1e-3,
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
-                                     lr=3e-3)
+                                     lr=3e-4)
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)

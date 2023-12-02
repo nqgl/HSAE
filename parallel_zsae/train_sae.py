@@ -7,6 +7,7 @@ from transformer_lens import HookedTransformer
 import time
 
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
+
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
     t0 = time.time()
     try:
@@ -64,7 +65,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                      l1_coeff=1e-3,
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
-                                     lr=3e-3)
+                                     lr=3e-4)
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
