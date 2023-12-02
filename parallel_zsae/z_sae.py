@@ -45,7 +45,7 @@ class AutoEncoderConfig:
     site :str = "" # z?
     device :str = "cuda"
     remove_rare_dir :bool = False
-    act_size :int = -1
+    d_model :int = -1
     flatten_heads :bool = True
     model_batch_size : int = None
     buffer_size :int = None
@@ -122,11 +122,10 @@ class AutoEncoder(nn.Module):
         d_dict = cfg.dict_size
         dtype = DTYPES[cfg.enc_dtype]
         torch.manual_seed(cfg.seed)
-        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), cfg.act_size, d_dict, dtype=dtype)))
-        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), d_dict, cfg.act_size, dtype=dtype)))
+        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), cfg.d_model, d_dict, dtype=dtype)))
+        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), d_dict, cfg.d_model, dtype=dtype)))
         self.b_enc = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), d_dict, dtype=dtype))
-        self.b_dec = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), cfg.act_size, dtype=dtype))
-
+        self.b_dec = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), cfg.d_model, dtype=dtype))
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
         self.d_dict = d_dict
@@ -137,7 +136,7 @@ class AutoEncoder(nn.Module):
         self.l1_loss_cached = None
         self.l0_norm_cached = None
         self.to(cfg.device)
-        self.cfg = cfg      
+        self.cfg = cfg
         self.cached_acts = None
         self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
@@ -171,6 +170,7 @@ class AutoEncoder(nn.Module):
         self.W_dec.grad -= W_dec_grad_proj
         # Bugfix(?) for ensuring W_dec retains unit norm, this was not there when I trained my original autoencoders.
         self.W_dec.data = W_dec_normed
+        
 
     def get_version(self):
         version_list = [int(file.name.split(".")[0]) for file in list(SAVE_DIR.iterdir()) if "pt" in str(file)]
@@ -235,7 +235,7 @@ class Buffer():
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
                 else:
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos d_act -> (batch seq_pos) d_act")
-                assert acts.shape[-1] == self.cfg.act_size
+                assert acts.shape[-1] == self.cfg.d_model
                 # it is ... n_head d_head and we want to flatten it into ... n_head * d_head
                 # ... == batch seq_pos
                 # print(tokens.shape, acts.shape, self.pointer, self.token_pointer)
@@ -289,7 +289,7 @@ class Buffer():
 
 
 def main():
-    ae_cfg = AutoEncoderConfig(site="z", act_size=512)
+    ae_cfg = AutoEncoderConfig(site="z", d_model=512)
     cfg = post_init_cfg(ae_cfg)
     all_tokens = load_data()
     encoder = AutoEncoder(cfg)
