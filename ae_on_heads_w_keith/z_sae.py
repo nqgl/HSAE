@@ -28,7 +28,7 @@ from dataclasses import dataclass, asdict
 class AutoEncoderConfig:
     seed :int = 49
     batch_size :int = 256
-    buffer_mult :int = 384
+    buffer_mult :int = 10000
     lr :int = 3e-4
     num_tokens :int = int(2e9)
     l1_coeff :int = 8e-4
@@ -203,7 +203,7 @@ class Buffer():
         self.token_pointer = 0
         self.first = True
         self.all_tokens = tokens
-        self.refresh_ratio = 0.5
+        self.refresh_ratio = 0.9
         self.model = model
         self.refresh()
 
@@ -229,8 +229,8 @@ class Buffer():
                 # it is ... n_head d_head and we want to flatten it into ... n_head * d_head
                 # ... == batch seq_pos
                 # print(tokens.shape, acts.shape, self.pointer, self.token_pointer)
-                print(cache[self.cfg.act_name].shape)
-                print("acts:", acts.shape)
+                # print(cache[self.cfg.act_name].shape)
+                # print("acts:", acts.shape)
                 self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts
                 self.pointer += acts.shape[0]
                 self.token_pointer += self.cfg.model_batch_size
