@@ -62,10 +62,13 @@ def re_init(model, encoder, buffer, indices):
 
 
 def replacement_hook(acts, hook, encoder):
-    print(acts.shape)
     if encoder.cfg.flatten_heads:
+        n_head, d_head = acts.shape[-2:]
         acts = einops.rearrange(acts, "... n_head d_head -> ... (n_head d_head)")
     mlp_post_reconstr = encoder(acts)
+    if encoder.cfg.flatten_heads:
+        mlp_post_reconstr = einops.rearrange(mlp_post_reconstr, "... (n_head d_head) -> ... n_head d_head", n_head=n_head, d_head=d_head)
+
     return mlp_post_reconstr
 
 def mean_ablate_hook(mlp_post, hook):
