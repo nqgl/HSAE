@@ -28,7 +28,7 @@ from dataclasses import dataclass, asdict
 class AutoEncoderConfig:
     seed :int = 49
     batch_size :int = 256
-    buffer_mult :int = 2000
+    buffer_mult :int = 20000
     lr :int = 3e-4
     num_tokens :int = int(2e9)
     l1_coeff :int = 8e-4
