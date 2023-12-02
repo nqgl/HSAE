@@ -4,11 +4,11 @@ import tqdm
 import torch
 from calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
-
+import time
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
    
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
-
+    t0 = time.time()
     try:
         wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         num_batches = cfg.num_tokens // cfg.batch_size
@@ -45,15 +45,17 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "dead": (freqs==0).float().mean().item(),
                     "below_1e-6": (freqs<1e-6).float().mean().item(),
                     "below_1e-5": (freqs<1e-5).float().mean().item(),
+                    "time spent shuffling": buffer.time_shuffling,
+                    "total time" : time.time() - t0,
                 })
             if (i+1) % 30000 == 0:
                 encoder.save()
+                t0 = time.time()
                 freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
                 to_be_reset = (freqs<10**(-5.5))
-                wandb.log({"reset_neurons": to_be_reset.sum()})
-
                 print("Resetting neurons!", to_be_reset.sum())
-                re_init(model, encoder, buffer, to_be_reset, encoder)
+                re_init(model, encoder, buffer, to_be_reset)
+                wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t0})
     finally:
         encoder.save()
 

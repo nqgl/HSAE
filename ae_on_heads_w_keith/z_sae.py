@@ -21,7 +21,7 @@ from transformer_lens.hook_points import (
 from transformer_lens import HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
 from functools import partial
 from collections import namedtuple
-
+import time
 from dataclasses import dataclass, asdict
 
 @dataclass
@@ -196,7 +196,8 @@ class AutoEncoder(nn.Module):
 # is it bad to have like 2 gb of tokens in memory?
 class Buffer():
     """
-    This defines a data buffer, to store a bunch of MLP acts that can be used to train the autoencoder. It'll automatically run the model to generate more when it gets halfway empty.
+    This defines a data buffer, to store a bunch of MLP acts that can be used to train the autoencoder.
+    It'll automatically run the model to generate more when it gets halfway empty.
     """
     def __init__(self, cfg, tokens, model):
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False).to(cfg.device)
@@ -207,9 +208,11 @@ class Buffer():
         self.cfg.buffer_refresh_ratio = 0.9
         self.model = model
         self.refresh()
+        self.time_shuffling = 0
 
     @torch.no_grad()
     def refresh(self):
+        t0 = time.time()
         self.pointer = 0
         with torch.autocast("cuda", torch.float16):
             if self.first:
@@ -240,7 +243,7 @@ class Buffer():
 
         self.pointer = 0
         self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.cfg.device)]
-
+        self.time_shuffling += time.time() - t0
     @torch.no_grad()
     def next(self):
         out = self.buffer[self.pointer:self.pointer+self.cfg.batch_size]
