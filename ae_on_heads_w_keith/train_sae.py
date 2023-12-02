@@ -34,7 +34,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict)
-            if (i) % 10000 == 0:
+            if (i) % 5000 == 0:
                 x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
