@@ -28,7 +28,7 @@ from dataclasses import dataclass, asdict
 class AutoEncoderConfig:
     seed :int = 49
     batch_size :int = 256
-    buffer_mult :int = 10000
+    buffer_mult :int = 100
     lr :int = 3e-4
     num_tokens :int = int(2e9)
     l1_coeff :int = 8e-4
@@ -40,7 +40,7 @@ class AutoEncoderConfig:
     enc_dtype :str = "fp32"
     model_name :str = "gelu-1l"
     site :str = "" # z?
-    device :str = "cuda:0"
+    device :str = "cuda"
     remove_rare_dir :bool = False
     act_size :int = -1
     flatten_heads :bool = True
