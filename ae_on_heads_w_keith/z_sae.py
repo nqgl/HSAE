@@ -23,6 +23,8 @@ from functools import partial
 from collections import namedtuple
 import time
 from dataclasses import dataclass, asdict
+import config_compatible_relu_choice
+
 
 @dataclass
 class AutoEncoderConfig:
@@ -51,6 +53,7 @@ class AutoEncoderConfig:
     dict_size :int = None
     name :str = None
     buffer_refresh_ratio :float = 0.9
+    nonlinearity :tuple = ("relu", {})
     # TODO do I need to add?:
 
 # Ithink this is gelu_2 specific
@@ -135,10 +138,11 @@ class AutoEncoder(nn.Module):
         self.to(cfg.device)
         self.cfg = cfg      
         self.cached_acts = None
+        self.nonlinearity = config_compatible_relu_choice.get_nonlinearity(cfg)
 
     def forward(self, x, cache_l0 = True, cache_acts = False):
         x_cent = x - self.b_dec
-        acts = F.relu(x_cent @ self.W_enc + self.b_enc)
+        acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).sum(-1).mean(0)
         self.l1_loss_cached = (acts.float().abs().sum())

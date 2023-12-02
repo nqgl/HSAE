@@ -51,18 +51,18 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 })
             if (i+1) % 30000 == 0:
                 encoder.save()
-                t0 = time.time()
+                t1 = time.time()
                 freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
                 to_be_reset = (freqs<10**(-5.5))
                 print("Resetting neurons!", to_be_reset.sum())
                 re_init(model, encoder, buffer, to_be_reset)
-                wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t0})
+                wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t1})
     finally:
         encoder.save()
 
 
 def main():
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, l1_coeff=1e-2)
+    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, l1_coeff=1e-2, nonlinearity=("undying_relu", {"l" : 0.01, "k" : 1}))
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
