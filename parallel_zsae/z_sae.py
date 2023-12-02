@@ -19,11 +19,12 @@ from transformer_lens.hook_points import (
     HookPoint,
 )  # Hooking utilities
 from transformer_lens import HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
-from functools import partial
+from functools import partial, field
 from collections import namedtuple
 import time
 from dataclasses import dataclass, asdict
 from . import config_compatible_relu_choice
+from typing import List
 
 
 @dataclass
@@ -31,9 +32,9 @@ class AutoEncoderConfig:
     seed :int = 49
     batch_size :int = 256
     buffer_mult :int = 10000
-    lr :int = 3e-4
+    lrs: List[float] = field(default_factory=lambda: [3e-4]) # list of learning rates
     num_tokens :int = int(2e9)
-    l1_coeff :int = 8e-4
+    l1_coeffs: List[float] = field(default_factory=lambda: [8e-4]) # list of L1 penalties
     beta1 :int = 0.9
     beta2 :int = 0.99
     dict_mult :int = 32
@@ -116,21 +117,20 @@ def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, cfg :AutoEncoderConfig):
         super().__init__()
         d_dict = cfg.dict_size
-        l1_coeff = cfg.l1_coeff
         dtype = DTYPES[cfg.enc_dtype]
         torch.manual_seed(cfg.seed)
-        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(cfg.act_size, d_dict, dtype=dtype)))
-        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(d_dict, cfg.act_size, dtype=dtype)))
+        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.l1_coeffs), cfg.act_size, d_dict, dtype=dtype)))
+        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.l1_coeffs), d_dict, cfg.act_size, dtype=dtype)))
         self.b_enc = nn.Parameter(torch.zeros(d_dict, dtype=dtype))
         self.b_dec = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
 
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
         self.d_dict = d_dict
-        self.l1_coeff = l1_coeff
+        self.l1_coeffs = torch.tensor(cfg.l1_coeffs, device=cfg.device)
         self.acts_cached = None
         self.l2_loss_cached = None
         self.l1_loss_cached = None
@@ -158,7 +158,7 @@ class AutoEncoder(nn.Module):
         return x_reconstruct
 
     def get_loss(self):
-        return self.l2_loss_cached + self.l1_coeff * self.l1_loss_cached
+        return self.l2_loss_cached + self.l1_coeffs * self.l1_loss_cached
 
 
     
