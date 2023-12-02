@@ -32,7 +32,7 @@ def get_recons_loss(model, encoder, buffer, num_batches=5, local_encoder=None):
 def get_freqs(model, encoder, buffer, num_batches=25, local_encoder=None):
     if local_encoder is None:
         local_encoder = encoder
-    act_freq_scores = torch.zeros(local_encoder.d_hidden, dtype=torch.float32).to(encoder.cfg.device)
+    act_freq_scores = torch.zeros(local_encoder.d_dict, dtype=torch.float32).to(encoder.cfg.device)
     total = 0
     for i in tqdm.trange(num_batches):
         tokens = buffer.all_tokens[torch.randperm(len(buffer.all_tokens))[:encoder.cfg.model_batch_size]]
