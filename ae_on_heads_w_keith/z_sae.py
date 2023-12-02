@@ -136,8 +136,6 @@ class AutoEncoder(nn.Module):
         self.cached_acts = None
 
     def forward(self, x, cache_l0 = True, cache_acts = False):
-        print(x.shape)
-        print(self.b_dec.shape)
         x_cent = x - self.b_dec
         acts = F.relu(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
@@ -221,12 +219,12 @@ class Buffer():
             for _ in range(0, num_batches, self.cfg.model_batch_size):
                 tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size]
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
-                acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
+                # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
                 # z has a head index 
-                # if self.cfg.flatten_heads:
-                #     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
-                # else:
-                #     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos d_act -> (batch seq_pos) d_act")
+                if self.cfg.flatten_heads:
+                    acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
+                else:
+                    acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos d_act -> (batch seq_pos) d_act")
                 assert acts.shape[-1] == self.cfg.act_size
                 # it is ... n_head d_head and we want to flatten it into ... n_head * d_head
                 # ... == batch seq_pos
