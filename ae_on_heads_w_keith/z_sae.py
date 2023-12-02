@@ -138,7 +138,7 @@ class AutoEncoder(nn.Module):
         self.to(cfg.device)
         self.cfg = cfg      
         self.cached_acts = None
-        self.nonlinearity = config_compatible_relu_choice.get_nonlinearity(cfg)
+        self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
 
     def forward(self, x, cache_l0 = True, cache_acts = False):
         x_cent = x - self.b_dec
