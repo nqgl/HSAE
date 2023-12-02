@@ -3,6 +3,8 @@ import torch
 import z_sae
 from functools import partial
 import tqdm
+import einops
+
 
 @torch.no_grad()
 def get_recons_loss(model, encoder, buffer, num_batches=5, local_encoder=None):
@@ -58,9 +60,10 @@ def re_init(model, encoder, buffer, indices):
     encoder.b_enc.data[indices] = new_b_enc[indices]
 
 
-
-def replacement_hook(mlp_post, hook, encoder):
-    mlp_post_reconstr = encoder(mlp_post)[1]
+def replacement_hook(acts, hook, encoder):
+    if encoder.cfg.flatten_heads:
+        acts = einops.rearrange(acts, "batch seq_pos n_head d_head -> batch seq_pos (n_head d_head)")
+    mlp_post_reconstr = encoder(acts)
     return mlp_post_reconstr
 
 def mean_ablate_hook(mlp_post, hook):
