@@ -20,7 +20,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         recons_scores = []
         act_freq_scores_list = []
         for i in tqdm.trange(num_batches):
-            i = i % buffer.all_tokens.shape[0]
+            # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
             l2_loss = encoder.l2_loss_cached
@@ -74,7 +74,7 @@ def linspace_l1(ae, l1_radius):
 
 def main():
 
-    ae_cfg = z_sae.AutoEncoderConfig(site="mlp_out", act_size=512, 
+    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=3,
                                     nonlinearity=("relu", {}), flatten_heads=False,
                                     lr=3e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
@@ -86,7 +86,7 @@ def main():
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
-    # linspace_l1(encoder, 0.2)
+    linspace_l1(encoder, 0)
 
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)
     train(encoder, cfg, buffer, model)

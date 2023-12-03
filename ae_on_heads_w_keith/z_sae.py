@@ -130,7 +130,7 @@ class AutoEncoder(nn.Module):
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
         self.d_dict = d_dict
-        self.l1_coeff = torch.tensor(l1_coeff, device=cfg.device, dtype=dtype)
+        self.l1_coeff = l1_coeff
         self.acts_cached = None
         self.l2_loss_cached = None
         self.l1_loss_cached = None
@@ -172,7 +172,7 @@ class AutoEncoder(nn.Module):
         self.steps_since_activation_frequency_reset = 0
 
     def get_loss(self):
-        return torch.sum(self.l2_loss_cached + self.l1_coeff.reshape(1,-1) * self.l1_loss_cached)
+        return torch.sum(self.l2_loss_cached + self.l1_coeff * self.l1_loss_cached)
 
 
     
