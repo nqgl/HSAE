@@ -153,7 +153,13 @@ class AutoEncoder(nn.Module):
     
         x_cent = x - self.b_dec
         # x_cent is batch_size x lrs x l1_coeffs x 1 x d_feature
-        acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
+        print(self.b_enc.shape)
+        print(self.W_enc.shape)
+        a = x_cent @ self.W_enc
+        print(a.shape)
+        c = a + self.b_enc
+        print(c.shape)
+        acts = self.nonlinearity(c)
         # acts is then batch_size x lrs x l1_coeffs x 1 x d_dict
         x_reconstruct = acts @ self.W_dec + self.b_dec
         # x_reconstruct is batch_size x lrs x l1_coeffs x 1 x d_feature
