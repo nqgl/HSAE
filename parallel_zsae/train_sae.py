@@ -15,7 +15,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         wandb.init(project="parallelized_autoencoders", entity="sae_all", config=cfg)
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
-        optims = [torch.optim.Adam([p[lr_i, :, :, :] for p in encoder.parameters()], lr=cfg.lrs[lr_i], betas=(cfg.beta1, cfg.beta2)) for lr_i in range(len(cfg.lrs))]
+        # optims = [torch.optim.Adam([p[lr_i, :, :, :] for p in encoder.parameters()], lr=cfg.lrs[lr_i], betas=(cfg.beta1, cfg.beta2)) for lr_i in range(len(cfg.lrs))]
+        encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lrs[0], betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
         for i in tqdm.trange(num_batches):
@@ -66,7 +67,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
 def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", d_feature=512, 
-                                     l1_coeffs=[1e-3],
+                                     l1_coeffs=[1e-3, 2e-3, 15e-4, 8e-4, 6e-4, 3e-3],
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
                                      lrs=[3e-4])
     cfg = z_sae.post_init_cfg(ae_cfg)
