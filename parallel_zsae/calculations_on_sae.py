@@ -39,7 +39,7 @@ def get_freqs(model, encoder, buffer, num_batches=25, local_encoder=None):
 
         _, cache = model.run_with_cache(tokens, stop_at_layer=encoder.cfg.layer + 1)
         acts = cache[encoder.cfg.act_name]
-        acts = acts.reshape(-1, encoder.cfg.act_size)
+        acts = acts.reshape(-1, encoder.cfg.d_model)
 
         hidden = local_encoder(acts)[2]
 
