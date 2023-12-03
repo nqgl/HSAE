@@ -1,12 +1,12 @@
-from . import z_sae
+from . import z_psae
 import wandb
 import tqdm
 import torch
-from .calculations_on_sae import get_recons_loss, get_freqs, re_init
+from .calculations_on_psae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import time
 
-def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
+def train(encoder :z_psae.AutoEncoder, cfg :z_psae.AutoEncoderConfig, buffer :z_psae.Buffer, model :HookedTransformer):
 
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
     t0 = time.time()
@@ -66,15 +66,15 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
 
 def main():
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", d_feature=512,
+    ae_cfg = z_psae.AutoEncoderConfig(site="z", d_feature=512,
                                      l1_coeffs=[2e-3, 15e-4, 1e-3, 8e-4, 6e-4],
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
                                      lrs=[3e-4], dict_mult= 8)
-    cfg = z_sae.post_init_cfg(ae_cfg)
-    model = z_sae.get_model(cfg)
-    all_tokens = z_sae.load_data(model)
-    encoder = z_sae.AutoEncoder(cfg)
-    buffer = z_sae.Buffer(cfg, all_tokens, model=model)
+    cfg = z_psae.post_init_cfg(ae_cfg)
+    model = z_psae.get_model(cfg)
+    all_tokens = z_psae.load_data(model)
+    encoder = z_psae.AutoEncoder(cfg)
+    buffer = z_psae.Buffer(cfg, all_tokens, model=model)
     train(encoder, cfg, buffer, model)
 
 if __name__ == "__main__":
