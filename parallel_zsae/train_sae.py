@@ -20,7 +20,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         for i in tqdm.trange(num_batches):
             i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            x_reconstruct = encoder(acts)  
+            x_reconstruct = encoder(acts)
             l2_loss = encoder.l2_loss_cached
             l1_loss = encoder.l1_loss_cached
             l0_norm = encoder.l0_norm_cached # TODO condisder turning this off if is slows down calculation
@@ -65,7 +65,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", d_feature=512, 
                                      l1_coeffs=[1e-3],
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
-                                     lr=3e-4)
+                                     lrs=[3e-4])
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
