@@ -62,11 +62,10 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
 l1_coeff_list = [1e-3, 15e-4, 12e-4]
 def main():
-    ae_cfg = z_sae.AutoEncoderConfig(site="mlp_post", act_size=512 * 4, 
+    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                      l1_coeff=15e-4,
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
-                                     lr=2e-5, flatten_heads=False, buffer_refresh_ratio=0.95,
-                                    buffer_mult = 5000) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                     lr=2e-5) #original 3e-4 8e-4 or same but 1e-3 on l1
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)

@@ -30,7 +30,7 @@ from . import config_compatible_relu_choice
 class AutoEncoderConfig:
     seed :int = 49
     batch_size :int = 256
-    buffer_mult :int = 10000
+    buffer_mult :int = 1000
     lr :int = 3e-4
     num_tokens :int = int(2e9)
     l1_coeff :int = 8e-4
@@ -139,8 +139,10 @@ class AutoEncoder(nn.Module):
         self.cached_acts = None
         self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
+        self.steps_since_activation_frequency_reset = 0
 
-    def forward(self, x, cache_l0 = True, cache_acts = False):
+
+    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = True):
         x_cent = x - self.b_dec
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
