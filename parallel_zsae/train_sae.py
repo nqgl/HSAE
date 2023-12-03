@@ -66,10 +66,10 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
 
 def main():
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", d_feature=512, 
-                                     l1_coeffs=[2e-3, 15e-4],
+    ae_cfg = z_sae.AutoEncoderConfig(site="z", d_feature=512,
+                                     l1_coeffs=[2e-3, 15e-4, 1e-3, 8e-4, 6e-4],
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
-                                     lrs=[3e-4], dict_mult= 10)
+                                     lrs=[3e-4], dict_mult= 8)
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
