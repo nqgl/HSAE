@@ -8,6 +8,12 @@ import einops
 
 @torch.no_grad()
 def get_recons_loss(model, encoder, buffer, num_batches=5, local_encoder=None):
+    zero_abl_loss = 1
+    recons_loss = 1
+    loss = 1
+    score = ((zero_abl_loss - recons_loss)/(zero_abl_loss - loss))
+    return score, loss, recons_loss, zero_abl_loss
+
     if local_encoder is None:
         local_encoder = encoder
     loss_list = []
