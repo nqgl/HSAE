@@ -158,7 +158,8 @@ class AutoEncoder(nn.Module):
         else:
             self.cached_acts = None
         if record_activation_frequency:
-            self.activation_frequency += (acts > 0).float().mean(dim=0)
+            print(acts.shape)
+            self.activation_frequency += (acts > 0).float().mean(dim=(1,0))
             self.steps_since_activation_frequency_reset += 1
         return x_reconstruct
     
