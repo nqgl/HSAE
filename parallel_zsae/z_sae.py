@@ -145,7 +145,7 @@ class AutoEncoder(nn.Module):
 
 
     def forward(self, x, cache_l0 = True, cache_acts = False):
-        print(x.shape, self.b_dec.shape)
+        # print(x.shape, self.b_dec.shape)
         # x comes in as batch_size x d_feature
         # b_dec is lrs x l1_coeffs x 1 x d_feature
         # W_dec is lrs x l1_coeffs x d_dict x d_feature
@@ -153,12 +153,12 @@ class AutoEncoder(nn.Module):
     
         x_cent = x - self.b_dec
         # x_cent is batch_size x lrs x l1_coeffs x 1 x d_feature
-        print(self.b_enc.shape)
-        print(self.W_enc.shape)
+        # print(self.b_enc.shape)
+        # print(self.W_enc.shape)
         a = x_cent @ self.W_enc
-        print(a.shape)
+        # print(a.shape)
         c = a + self.b_enc
-        print(c.shape)
+        # print(c.shape)
         acts = self.nonlinearity(c)
         # acts is then batch_size x lrs x l1_coeffs x 1 x d_dict
         e = acts @ self.W_dec
