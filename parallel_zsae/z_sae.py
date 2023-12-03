@@ -221,7 +221,7 @@ class Buffer():
     It'll automatically run the model to generate more when it gets halfway empty.
     """
     def __init__(self, cfg, tokens, model):
-        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False).to(cfg.device)
+        self.buffer = torch.zeros((cfg.buffer_size, cfg.d_feature), dtype=torch.float16, requires_grad=False).to(cfg.device)
         self.cfg :AutoEncoderConfig = cfg
         self.token_pointer = 0
         self.first = True
