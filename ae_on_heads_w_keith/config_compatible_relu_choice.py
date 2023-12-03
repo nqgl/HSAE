@@ -7,6 +7,7 @@ nonlinearity_dict = {
     "relu" : torch.nn.functional.relu,
     "undying_relu" : gradcool_functions.undying_relu,
     "undying_relu_2phase" : gradcool_functions.undying_relu_2phases,
+    "undying_relu_extra_negative" : gradcool_functions.undying_relu_extra_negative,
 }
 
 def cfg_to_nonlinearity(cfg):
