@@ -247,6 +247,7 @@ class Buffer():
                 # print(cache[self.cfg.act_name].shape)
                 # print("acts:", acts.shape)
                 print(acts.shape)
+                print(self.buffer.shape)
                 print("b", self.buffer[self.pointer: self.pointer+acts.shape[0]].shape)
                 self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts
                 self.pointer += acts.shape[0]
