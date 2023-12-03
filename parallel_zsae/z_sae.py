@@ -55,6 +55,7 @@ class AutoEncoderConfig:
     name :str = None
     buffer_refresh_ratio :float = 0.9
     nonlinearity :tuple = ("relu", {})
+    lr :float = 3e-4
     # TODO do I need to add?:
 
 # Ithink this is gelu_2 specific

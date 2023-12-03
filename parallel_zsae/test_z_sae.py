@@ -1,6 +1,6 @@
 import torch
 import unittest
-from z_sae import AutoEncoder, AutoEncoderConfig
+from .z_sae import AutoEncoder, AutoEncoderConfig
 
 class TestAutoEncoder(unittest.TestCase):
     def setUp(self):

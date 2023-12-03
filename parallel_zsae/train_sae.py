@@ -63,7 +63,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
 def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", d_model=512, 
-                                     l1_coeff=1e-3,
+                                     l1_coeffs=[1e-3],
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
                                      lr=3e-4)
     cfg = z_sae.post_init_cfg(ae_cfg)
