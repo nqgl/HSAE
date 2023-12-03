@@ -63,7 +63,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 l1_coeff_list = [1e-3, 15e-4, 12e-4]
 def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="mlp_out", act_size=512, 
-                                    l1_coeff=2e-3,
+                                    l1_coeff=8e-3,
                                     nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), flatten_heads=False,
                                     lr=3e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
