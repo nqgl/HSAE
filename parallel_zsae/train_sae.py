@@ -10,6 +10,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
     t0 = time.time()
+    wandbapi = wandb.Api()
     try:
         wandb.init(project="parallelized_autoencoders", entity="sae_all", config=cfg)
         num_batches = cfg.num_tokens // cfg.batch_size
