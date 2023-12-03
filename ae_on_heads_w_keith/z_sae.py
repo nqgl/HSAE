@@ -24,6 +24,7 @@ from collections import namedtuple
 import time
 from dataclasses import dataclass, asdict
 from . import config_compatible_relu_choice
+from typing import List, Tuple, Dict, Optional, Union, Callable
 
 
 @dataclass
@@ -33,7 +34,7 @@ class AutoEncoderConfig:
     buffer_mult :int = 10000
     lr :int = 3e-4
     num_tokens :int = int(2e9)
-    l1_coeff :int = 8e-4
+    l1_coeff :Union[float, List[float]] = 8e-4
     beta1 :int = 0.9
     beta2 :int = 0.99
     dict_mult :int = 32
@@ -129,7 +130,7 @@ class AutoEncoder(nn.Module):
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
         self.d_dict = d_dict
-        self.l1_coeff = l1_coeff
+        self.l1_coeff = torch.tensor(l1_coeff)
         self.acts_cached = None
         self.l2_loss_cached = None
         self.l1_loss_cached = None
@@ -147,7 +148,7 @@ class AutoEncoder(nn.Module):
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).sum(-1).mean(0)
-        self.l1_loss_cached = (acts.float().abs().sum())
+        self.l1_loss_cached = (acts.float().abs().sum(dim=(-2)))
         if cache_l0:
             self.l0_norm_cached = (acts > 0).sum() / acts.shape[0]
         else:
@@ -164,7 +165,7 @@ class AutoEncoder(nn.Module):
         self.steps_since_activation_frequency_reset = 0
 
     def get_loss(self):
-        return self.l2_loss_cached + self.l1_coeff * self.l1_loss_cached
+        return torch.sum(self.l2_loss_cached + self.l1_coeff * self.l1_loss_cached)
 
 
     

@@ -61,7 +61,13 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         encoder.save()
 
 l1_coeff_list = [1e-3, 15e-4, 12e-4]
+
+def linspace_l1(cfg, l1_radius):
+    l1 = torch.linspace(cfg.l1_coeff * (1 - l1_radius), cfg.l1_coeff * (1 + l1_radius), cfg.dict_size)
+    cfg.l1_coeff = l1
+
 def main():
+
     ae_cfg = z_sae.AutoEncoderConfig(site="mlp_out", act_size=512, 
                                     l1_coeff=8e-3,
                                     nonlinearity=("undying_relu_extra_negative", {"l" : 0.003, "k" : 1}), flatten_heads=False,
@@ -71,6 +77,7 @@ def main():
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
     #                                  lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
     cfg = z_sae.post_init_cfg(ae_cfg)
+    linspace_l1(cfg, 0.5)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
