@@ -150,7 +150,7 @@ class AutoEncoder(nn.Module):
         self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).sum(-1).mean(0)
         self.l1_loss_cached = (acts.float().abs().sum(dim=(-2)))
         if cache_l0:
-            self.l0_norm_cached = (acts > 0).sum() / acts.shape[0]
+            self.l0_norm_cached = (acts > 0).float().sum() / acts.shape[0]
         else:
             self.l0_norm_cached = None
         if cache_acts:
