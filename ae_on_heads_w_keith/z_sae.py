@@ -266,6 +266,7 @@ class Buffer():
         self.pointer = 0
         self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.cfg.device)]
         self.time_shuffling += time.time() - t0
+        
     @torch.no_grad()
     def next(self):
         out = self.buffer[self.pointer:self.pointer+self.cfg.batch_size]
@@ -273,8 +274,21 @@ class Buffer():
         if self.pointer > int(self.buffer.shape[0] * self.cfg.buffer_refresh_ratio) - self.cfg.batch_size:
             # print("Refreshing the buffer!")
             self.refresh()
+
         return out
-    
+
+
+    @torch.no_grad()
+    def freshen_buffer(self, fresh_factor = 1, half_first=True):
+        if half_first:
+            n = (0.5 * self.cfg.buffer_size) // self.cfg.batch_size
+            self.pointer += n * self.cfg.batch_size
+            self.refresh()
+        n = ((1 - self.cfg.buffer_refresh_ratio) * self.cfg.buffer_size) // self.cfg.batch_size
+        for _ in range(1 + int(fresh_factor / (1 - self.cfg.buffer_refresh_ratio))):
+            self.pointer += (n + 1) * self.cfg.batch_size
+            self.refresh()
+
 
 
 
