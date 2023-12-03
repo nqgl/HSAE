@@ -62,17 +62,20 @@ def train(encoder :List[z_sae.AutoEncoder], cfg :z_sae.AutoEncoderConfig, buffer
         encoder.save()
 
 l1_coeff_list = [1e-3, 15e-4, 12e-4]
+lr_list = [1e-5, 3e-5, 1e-4]
 def main():
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                                     l1_coeff=15e-4,
+    ae_cfgs = [z_sae.AutoEncoderConfig(site="z", act_size=512, 
+                                     l1_coeff=l1,
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
-                                     lr=2e-5) #original 3e-4 8e-4 or same but 1e-3 on l1
-    cfg = z_sae.post_init_cfg(ae_cfg)
-    model = z_sae.get_model(cfg)
+                                     lr=lr) for l1 in l1_coeff_list for lr in lr_list]
+
+    cfgs = [z_sae.post_init_cfg(ae_cfg) for ae_cfg in ae_cfgs]
+
+    model = z_sae.get_model(cfgs[0])
     all_tokens = z_sae.load_data(model)
-    encoder = z_sae.AutoEncoder(cfg)
-    buffer = z_sae.Buffer(cfg, all_tokens, model=model)
-    train(encoder, cfg, buffer, model)
+    aes = [z_sae.AutoEncoder(cfg) for cfg in cfgs]
+    buffer = z_sae.Buffer(cfgs[0], all_tokens, model=model)
+    train(aes, cfgs, buffer, model)
 
 if __name__ == "__main__":
     main()
