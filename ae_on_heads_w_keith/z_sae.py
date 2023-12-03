@@ -231,7 +231,7 @@ class Buffer():
             else:
                 num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
             self.first = False
-            for _ in range(0, num_batches - 1, self.cfg.model_batch_size):
+            for _ in range(0, num_batches, self.cfg.model_batch_size):
                 tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size]
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
@@ -246,6 +246,8 @@ class Buffer():
                 # print(tokens.shape, acts.shape, self.pointer, self.token_pointer)
                 # print(cache[self.cfg.act_name].shape)
                 # print("acts:", acts.shape)
+                print(acts.shape)
+                print(self.buffer[self.pointer: self.pointer+acts.shape[0]].shape)
                 self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts
                 self.pointer += acts.shape[0]
                 self.token_pointer += self.cfg.model_batch_size
