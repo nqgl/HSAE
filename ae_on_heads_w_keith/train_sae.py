@@ -52,7 +52,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 3000 == 1500:
+            if (i+1) % 6000 == 1500:
                 encoder.save()
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
