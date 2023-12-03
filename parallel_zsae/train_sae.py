@@ -8,11 +8,11 @@ import time
 
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
 
-    wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
+    # wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
     t0 = time.time()
-    wandbapi = wandb.Api()
+    # wandbapi = wandb.Api()
     try:
-        wandb.init(project="parallelized_autoencoders", entity="sae_all", config=cfg)
+        wandb.init(project="parallelized_autoencoders", entity="sae_all", config=cfg, mode="disabled")
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
         # optims = [torch.optim.Adam([p[lr_i, :, :, :] for p in encoder.parameters()], lr=cfg.lrs[lr_i], betas=(cfg.beta1, cfg.beta2)) for lr_i in range(len(cfg.lrs))]
