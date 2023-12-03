@@ -157,6 +157,11 @@ class AutoEncoder(nn.Module):
         else:
             self.cached_acts = None
         return x_reconstruct
+    
+
+    def reset_activation_frequencies(self):
+        self.activation_frequency[:] = 0
+        self.steps_since_activation_frequency_reset = 0
 
     def get_loss(self):
         return self.l2_loss_cached + self.l1_coeff * self.l1_loss_cached
@@ -226,7 +231,7 @@ class Buffer():
             else:
                 num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
             self.first = False
-            for _ in range(0, num_batches, self.cfg.model_batch_size):
+            for _ in range(0, num_batches - 1, self.cfg.model_batch_size):
                 tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size]
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
