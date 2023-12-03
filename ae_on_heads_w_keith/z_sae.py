@@ -172,7 +172,7 @@ class AutoEncoder(nn.Module):
         self.steps_since_activation_frequency_reset = 0
 
     def get_loss(self):
-        return torch.sum(self.l2_loss_cached + self.l1_coeff * self.l1_loss_cached)
+        return self.l2_loss_cached + torch.sum(self.l1_coeff * self.l1_loss_cached)
 
 
     
