@@ -122,10 +122,10 @@ class AutoEncoder(nn.Module):
         l1_coeff = cfg.l1_coeff
         dtype = DTYPES[cfg.enc_dtype]
         torch.manual_seed(cfg.seed)
-        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(cfg.act_size, d_dict, dtype=dtype)), device=cfg.device)
-        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(d_dict, cfg.act_size, dtype=dtype)), device=cfg.device)
-        self.b_enc = nn.Parameter(torch.zeros(d_dict, dtype=dtype), device=cfg.device)
-        self.b_dec = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype), device=cfg.device)
+        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(cfg.act_size, d_dict, dtype=dtype), device=cfg.device))
+        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(d_dict, cfg.act_size, dtype=dtype), device=cfg.device))
+        self.b_enc = nn.Parameter(torch.zeros(d_dict, dtype=dtype, device=cfg.device))
+        self.b_dec = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype, device=cfg.device))
 
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
