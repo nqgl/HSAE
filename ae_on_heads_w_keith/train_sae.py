@@ -10,6 +10,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
    
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
+    buffer.freshen_buffer()
     try:
         wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         # wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
@@ -36,13 +37,13 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict)
-            if (i) % 3000 == 0:
+            if (i) % 3000 == 2999:
                 x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
                 freqs = get_freqs(model, encoder, buffer, 5, local_encoder=encoder)
                 act_freq_scores_list.append(freqs)
-                # histogram(freqs.log10(), marginal="box", histnorm="percent", title="Frequencies")
+                # histogram(freqs.log10(), marginal="box",h istnorm="percent", title="Frequencies")
                 wandb.log({
                     "recons_score": x[0],
                     "dead": (freqs==0).float().mean().item(),
@@ -77,7 +78,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=2e-3,
                                     nonlinearity=("relu", {}), flatten_heads=True,
-                                    lr=3e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    lr=3e-5) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
