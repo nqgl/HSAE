@@ -63,7 +63,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 l1_coeff_list = [1e-3, 15e-4, 12e-4]
 
 def linspace_l1(cfg, l1_radius):
-    l1 = torch.linspace(cfg.l1_coeff * (1 - l1_radius), cfg.l1_coeff * (1 + l1_radius), cfg.dict_size)
+    l1 = torch.linspace(cfg.l1_coeff * (1 - l1_radius), cfg.l1_coeff * (1 + l1_radius), cfg.dict_size).tolist()
     cfg.l1_coeff = l1
 
 def main():
