@@ -158,8 +158,8 @@ class AutoEncoder(nn.Module):
         x_reconstruct = acts @ self.W_dec + self.b_dec
         # x_reconstruct is batch_size x lrs x l1_coeffs x 1 x d_feature
 
-        self.l2_loss_cached = torch.mean((x_reconstruct.float() - x.float()).pow(2), dim=-1).mean(dim=0).sum()
-        self.l1_loss_cached = (acts.float().abs().sum(dim=-1))
+        self.l2_loss_cached = torch.mean(torch.mean((x_reconstruct.float() - x.float()).pow(2), dim=-1), dim=0).sum()
+        self.l1_loss_cached = acts.float().abs().sum(dim=-1, keepdim=True)
         if cache_l0:
             self.l0_norm_cached = (acts > 0).sum() / acts.shape[0]
         else:
@@ -172,6 +172,7 @@ class AutoEncoder(nn.Module):
 
     def get_loss(self):
         print(self.l2_loss_cached.shape, self.l1_loss_cached.shape, self.l1_coeffs.shape)
+        print(self.l2_loss_cached)
         return self.l2_loss_cached + (self.l1_coeffs * self.l1_loss_cached).sum()
 
 
