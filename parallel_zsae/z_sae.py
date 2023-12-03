@@ -161,7 +161,8 @@ class AutoEncoder(nn.Module):
         print(c.shape)
         acts = self.nonlinearity(c)
         # acts is then batch_size x lrs x l1_coeffs x 1 x d_dict
-        x_reconstruct = acts @ self.W_dec + self.b_dec
+        e = acts @ self.W_dec
+        x_reconstruct = e + self.b_dec
         # x_reconstruct is batch_size x lrs x l1_coeffs x 1 x d_feature
 
         self.l2_loss_cached = torch.mean((x_reconstruct.float() - x.float()).pow(2), dim=(0,-1)).squeeze(dim=-1)
