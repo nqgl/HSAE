@@ -6,10 +6,12 @@ from .calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import time
 
-def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
+def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer, buffer_freshness = 1):
    
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
     t0 = time.time()
+    for _ in range(1 + int(buffer_freshness / (1 - buffer.cfg.buffer_refresh_ratio))):
+        buffer.next()
     try:
         # wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")

@@ -158,10 +158,10 @@ class AutoEncoder(nn.Module):
         else:
             self.cached_acts = None
         if record_activation_frequency:
-            print(acts.shape)
+            # print(acts.shape)
             activated = torch.mean((acts > 0).float(), dim=0)
-            print("activated shape", activated.shape)
-            print("freq shape", self.activation_frequency.shape)
+            # print("activated shape", activated.shape)
+            # print("freq shape", self.activation_frequency.shape)
             self.activation_frequency[:] = activated + self.activation_frequency
             self.steps_since_activation_frequency_reset += 1
         return x_reconstruct
