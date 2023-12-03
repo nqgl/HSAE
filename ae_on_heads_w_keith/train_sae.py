@@ -49,14 +49,17 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 30000 == 0:
+            if (i+1) % 10000 == 0:
                 encoder.save()
                 t1 = time.time()
-                freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
+                # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
+                freqs = encoder.activation_frequency / encoder.steps_since_activation_frequency_reset
                 to_be_reset = (freqs<10**(-5.5))
                 print("Resetting neurons!", to_be_reset.sum())
-                re_init(model, encoder, buffer, to_be_reset)
+                if to_be_reset.sum() > 0:
+                    re_init(model, encoder, buffer, to_be_reset)
                 wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t1})
+                encoder.reset_activation_frequencies()
     finally:
         encoder.save()
 

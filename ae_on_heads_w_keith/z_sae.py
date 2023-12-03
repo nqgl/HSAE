@@ -157,6 +157,9 @@ class AutoEncoder(nn.Module):
             self.cached_acts = acts
         else:
             self.cached_acts = None
+        if record_activation_frequency:
+            self.activation_frequency += (acts > 0).mean(dim=0)
+            self.steps_since_activation_frequency_reset += 1
         return x_reconstruct
     
 
