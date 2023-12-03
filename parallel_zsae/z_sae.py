@@ -149,14 +149,14 @@ class AutoEncoder(nn.Module):
         # x comes in as batch_size x d_feature
         # b_dec is lrs x l1_coeffs x 1 x d_feature
         # W_dec is lrs x l1_coeffs x d_dict x d_feature
-        x = einops.rearrange(x, "batch d_feature -> batch 1 1 d_feature")
+        x = einops.rearrange(x, "batch d_feature -> batch 1 1 1 d_feature")
     
         x_cent = x - self.b_dec
-        # x_cent is batch_size x lrs x l1_coeffs x d_feature
+        # x_cent is batch_size x lrs x l1_coeffs x 1 x d_feature
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
-        # acts is then batch_size x lrs x l1_coeffs x d_dict
+        # acts is then batch_size x lrs x l1_coeffs x 1 x d_dict
         x_reconstruct = acts @ self.W_dec + self.b_dec
-        # x_reconstruct is batch_size x lrs x l1_coeffs x d_feature
+        # x_reconstruct is batch_size x lrs x l1_coeffs x 1 x d_feature
 
         self.l2_loss_cached = torch.mean((x_reconstruct.float() - x.float()).pow(2), dim=-1).mean(dim=0).sum()
         self.l1_loss_cached = (acts.float().abs().sum(dim=-1))
@@ -171,7 +171,8 @@ class AutoEncoder(nn.Module):
         return x_reconstruct
 
     def get_loss(self):
-        return self.l2_loss_cached + self.l1_coeffs * self.l1_loss_cached
+        print(self.l2_loss_cached.shape, self.l1_loss_cached.shape, self.l1_coeffs.shape)
+        return self.l2_loss_cached + (self.l1_coeffs * self.l1_loss_cached).sum()
 
 
     
