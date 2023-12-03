@@ -1,4 +1,12 @@
+ssh -p 41019 root@66.23.193.13 -L 8080:localhost:8080
+
 git clone https://github.com/nqgl/modified-SAE.git
 cd modified-SAE
 pip install transformer-lens
 python3 train_sae_on_heads.py
+
+
+
+
+
+git pull; python3 train_sae_on_heads.py
