@@ -45,7 +45,7 @@ class AutoEncoderConfig:
     site :str = "" # z?
     device :str = "cuda"
     remove_rare_dir :bool = False
-    d_model :int = -1
+    d_feature :int = -1
     flatten_heads :bool = True
     model_batch_size : int = None
     buffer_size :int = None
@@ -67,12 +67,12 @@ if not SAVE_DIR.exists():
     SAVE_DIR.mkdir()
 
 
-def post_init_cfg(cfg):
+def post_init_cfg(cfg :AutoEncoderConfig):
     cfg.model_batch_size = cfg.batch_size // cfg.seq_len * 16
     cfg.buffer_size = cfg.batch_size * cfg.buffer_mult
     cfg.buffer_batches = cfg.buffer_size // cfg.seq_len
     cfg.act_name = utils.get_act_name(cfg.site, cfg.layer)
-    cfg.dict_size = cfg.act_size * cfg.dict_mult
+    cfg.dict_size = cfg.d_feature * cfg.dict_mult
     cfg.name = f"{cfg.model_name}_{cfg.layer}_{cfg.dict_size}_{cfg.site}"
     return cfg
 def default_cfg():
@@ -123,10 +123,10 @@ class AutoEncoder(nn.Module):
         d_dict = cfg.dict_size
         dtype = DTYPES[cfg.enc_dtype]
         torch.manual_seed(cfg.seed)
-        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), cfg.d_model, d_dict, dtype=dtype)))
-        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), d_dict, cfg.d_model, dtype=dtype)))
-        self.b_enc = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), d_dict, dtype=dtype))
-        self.b_dec = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), cfg.d_model, dtype=dtype))
+        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), cfg.d_feature, d_dict, dtype=dtype)))
+        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(len(cfg.lrs), len(cfg.l1_coeffs), d_dict, cfg.d_feature, dtype=dtype)))
+        self.b_enc = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), 1, d_dict, dtype=dtype))
+        self.b_dec = nn.Parameter(torch.zeros(len(cfg.lrs), len(cfg.l1_coeffs), 1, cfg.d_feature, dtype=dtype))
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
         self.d_dict = d_dict
@@ -142,7 +142,15 @@ class AutoEncoder(nn.Module):
         self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
 
+
+
     def forward(self, x, cache_l0 = True, cache_acts = False):
+        print(x.shape, self.b_dec.shape)
+        # x comes in as batch_size x d_feature
+        # b_dec is lrs x l1_coeffs x 1 x d_feature
+        # W_dec is lrs x l1_coeffs x d_dict x d_feature
+        x = einops.rearrange(x, "batch d_feature -> batch 1 1 1 d_feature")
+    
         x_cent = x - self.b_dec
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
@@ -236,7 +244,7 @@ class Buffer():
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
                 else:
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos d_act -> (batch seq_pos) d_act")
-                assert acts.shape[-1] == self.cfg.d_model
+                assert acts.shape[-1] == self.cfg.d_feature
                 # it is ... n_head d_head and we want to flatten it into ... n_head * d_head
                 # ... == batch seq_pos
                 # print(tokens.shape, acts.shape, self.pointer, self.token_pointer)
@@ -290,7 +298,7 @@ class Buffer():
 
 
 def main():
-    ae_cfg = AutoEncoderConfig(site="z", d_model=512)
+    ae_cfg = AutoEncoderConfig(site="z", d_feature=512)
     cfg = post_init_cfg(ae_cfg)
     all_tokens = load_data()
     encoder = AutoEncoder(cfg)

@@ -11,7 +11,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
     t0 = time.time()
     try:
-        wandb.init(project="autoencoders", entity="sae_all", config=cfg)
+        wandb.init(project="parallelized_autoencoders", entity="sae_all", config=cfg)
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
         encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
@@ -62,7 +62,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
 
 
 def main():
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", d_model=512, 
+    ae_cfg = z_sae.AutoEncoderConfig(site="z", d_feature=512, 
                                      l1_coeffs=[1e-3],
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
                                      lr=3e-4)
