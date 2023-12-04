@@ -81,7 +81,7 @@ def linspace_l1(ae, l1_radius):
 def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                                    l1_coeff=24e-4, dict_mult=32, batch_size=256,
+                                    l1_coeff=40e-4, dict_mult=32, batch_size=256,
                                     nonlinearity=("undying_relu", {"l" : 0.00003, "k" : 1, "leaky" : True}), flatten_heads=True,
                                     lr=1e-5, cosine_l1={"period" : 1000, "range" : 0.5}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
