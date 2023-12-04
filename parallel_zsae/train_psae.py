@@ -38,7 +38,7 @@ def train(encoder :z_psae.AutoEncoder, cfg :z_psae.AutoEncoderConfig, buffer :z_
             scaler.update()
             encoder_optim.zero_grad()
             loss_dict = {f"l1{cfg.l1_coeffs[l1_i]}lr{cfg.lrs[lr_i]}" : 
-                         {"l2_loss": l2_loss[lr_i, l1_i].item(), "l1_loss": l1_loss[lr_i, l1_i].item(), "l0_norm": l0_norm[lr_i, l1_i].item()} 
+                         {"l2_loss": l2_loss[lr_i, l1_i].sum().item(), "l1_loss": l1_loss[lr_i, l1_i].sum().item(), "l0_norm": l0_norm[lr_i, l1_i].sum().item()} 
                          for l1_i in range(len(cfg.l1_coeffs)) for lr_i in range(len(cfg.lrs))}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
