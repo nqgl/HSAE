@@ -172,7 +172,6 @@ class AutoEncoder(nn.Module):
         self.activation_frequency[:] = 0
         self.steps_since_activation_frequency_reset = 0
 
-    @torch.no_grad()
     def get_loss(self):
         return self.l2_loss_cached + torch.sum(self.l1_coeff * self.l1_loss_cached)
 
