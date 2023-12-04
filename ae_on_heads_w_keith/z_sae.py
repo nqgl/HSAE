@@ -129,7 +129,7 @@ class AutoEncoder(nn.Module):
         self.b_dec = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
 
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
-
+        self.step_num = 0
         self.d_dict = d_dict
         self.l1_coeff = l1_coeff
         self.acts_cached = None
@@ -174,11 +174,12 @@ class AutoEncoder(nn.Module):
         self.steps_since_activation_frequency_reset = 0
 
     def get_loss(self):
+        self.step_num += 1
         if self.cfg.cosine_l1 is None:
             l1_coeff = self.l1_coeff
         else:
             c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
-            l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(2 * torch.pi * self.steps_since_activation_frequency_reset / c_period))
+            l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
         return self.l2_loss_cached + torch.sum(l1_coeff * self.l1_loss_cached)
 
 
