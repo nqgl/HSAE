@@ -10,6 +10,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
     buffer.freshen_buffer()
+    scaler = torch.cuda.amp.GradScaler()
+
     try:
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         
@@ -28,7 +30,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l1_loss = encoder.l1_loss_cached
             l0_norm = encoder.l0_norm_cached # TODO condisder turning this off if is slows down calculation
             loss = encoder.get_loss()
-            loss.backward()
+            scaler.scale(loss).backward()
             encoder.make_decoder_weights_and_grad_unit_norm()
             encoder_optim.step()
             encoder_optim.zero_grad()
