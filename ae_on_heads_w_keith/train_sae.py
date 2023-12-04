@@ -43,10 +43,12 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
             if (i) % 5000 == 1499:
-                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder))
+                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=2))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
-                freqs = get_freqs(model, encoder, buffer, 5, local_encoder=encoder)
+                
+                # freqs = get_freqs(model, encoder, buffer, 5, local_encoder=encoder)
+                freqs = encoder.activation_frequency / encoder.steps_since_activation_frequency_reset
                 act_freq_scores_list.append(freqs)
                 # histogram(freqs.log10(), marginal="box",h istnorm="percent", title="Frequencies")
                 wandb.log({
@@ -57,7 +59,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 10000 == 1500 and i > 1500:
+            if (i+1) % 20000 == 1500 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
