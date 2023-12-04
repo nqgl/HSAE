@@ -41,11 +41,14 @@ class GradSignFunction(torch.autograd.Function):
     def backward(ctx, grad_output):
         return torch.sign(grad_output)
     
-def undying_relu(x, l=0.01, k=1, l_mid_neg=None, l_low_neg = 0, l_low_pos = None):
+def undying_relu(x, l=0.01, k=1, l_mid_neg=None, l_low_neg = 0, l_low_pos = None, leaky=False):
     if l_mid_neg is None:
         l_mid_neg = l
     if l_low_pos is None:
         l_low_pos = l
+    if leaky:
+        k = 0
+        l_low_neg, l_mid_neg, l_low_pos = l, l, l
     l_mid_pos = l
     y_forward = F.relu(x)
     y_backward1 = x * (x > 0)
