@@ -44,7 +44,7 @@ def train(encoder :z_psae.AutoEncoder, cfg :z_psae.AutoEncoderConfig, buffer :z_
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict)
-            if (i) % 5000 == -1:
+            if (i) % 5000 == 4999:
                 x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
@@ -59,7 +59,7 @@ def train(encoder :z_psae.AutoEncoder, cfg :z_psae.AutoEncoderConfig, buffer :z_
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 60000 == 50000:
+            if (i+1) % 20000 == 5000:
                 encoder.save()
                 t1 = time.time()
                 freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
