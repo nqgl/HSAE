@@ -80,3 +80,25 @@ def zero_ablate_hook(mlp_post, hook):
 
 
 
+@torch.no_grad() # TODO
+def get_bits_lost(model, encoder, buffer, num_batches=5, local_encoder=None):
+    if local_encoder is None:
+        local_encoder = encoder
+    loss_list = []
+    for i in range(num_batches):
+        tokens = buffer.all_tokens[torch.randperm(len(buffer.all_tokens))[:encoder.cfg.model_batch_size]]
+        loss = model(tokens, return_type="loss")
+        recons_loss = model.run_with_hooks(tokens, return_type="loss", fwd_hooks=[(encoder.cfg.act_name, partial(replacement_hook, encoder=local_encoder))])
+        # mean_abl_loss = model.run_with_hooks(tokens, return_type="loss", fwd_hooks=[(encoder.cfg.act_name, mean_ablate_hook)])
+        zero_abl_loss = model.run_with_hooks(tokens, return_type="loss", fwd_hooks=[(encoder.cfg.act_name, zero_ablate_hook)])
+        loss_list.append((loss, recons_loss, zero_abl_loss))
+    losses = torch.tensor(loss_list)
+    loss, recons_loss, zero_abl_loss = losses.mean(0).tolist()
+
+    print(loss, recons_loss, zero_abl_loss)
+    score = ((zero_abl_loss - recons_loss)/(zero_abl_loss - loss))
+    print(f"{score:.2%}")
+    # print(f"{((zero_abl_loss - mean_abl_loss)/(zero_abl_loss - loss)).item():.2%}")
+    return score, loss, recons_loss, zero_abl_loss
+
+
