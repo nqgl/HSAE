@@ -32,7 +32,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             loss = encoder.get_loss()
             scaler.scale(loss).backward()
             encoder.make_decoder_weights_and_grad_unit_norm()
-            encoder_optim.step()
+            scaler.step(encoder_optim)
+            scaler.update()
             encoder_optim.zero_grad()
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
