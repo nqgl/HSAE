@@ -193,10 +193,10 @@ class AutoEncoder(nn.Module):
         else:
             return 0
 
-    def save(self):
+    def save(self, name=""):
         version = self.get_version()
-        torch.save(self.state_dict(), SAVE_DIR/(str(version)+".pt"))
-        with open(SAVE_DIR/(str(version)+"_cfg.json"), "w") as f:
+        torch.save(self.state_dict(), SAVE_DIR/(str(version)+ "_" + name + ".pt"))
+        with open(SAVE_DIR/(str(version)+ "_" + name + "_cfg.json"), "w") as f:
             json.dump(asdict(self.cfg), f)
         print("Saved as version", version)
 

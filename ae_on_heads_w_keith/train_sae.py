@@ -58,7 +58,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "total time" : time.time() - t0,
                 })
             if (i+1) % 30000 == 1500:
-                encoder.save()
+                encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
                 freqs = encoder.activation_frequency / encoder.steps_since_activation_frequency_reset
@@ -82,8 +82,8 @@ def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=21e-4,
-                                    nonlinearity=("undying_relu", {"l" : 0.001, "k" : 1, "leaky" : True}), flatten_heads=True,
-                                    lr=1e-4, enc_dtype="fp32") #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    nonlinearity=("undying_relu", {"l" : 0.00003, "k" : 1, "leaky" : True}), flatten_heads=True,
+                                    lr=3e-5) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
