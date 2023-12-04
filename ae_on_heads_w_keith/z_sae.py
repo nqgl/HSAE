@@ -249,7 +249,6 @@ class Buffer():
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
                 else:
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos d_act -> (batch seq_pos) d_act")
-                acts = acts.type(DTYPES[self.cfg.enc_dtype])
                 assert acts.shape[-1] == self.cfg.act_size
                 # it is ... n_head d_head and we want to flatten it into ... n_head * d_head
                 # ... == batch seq_pos
