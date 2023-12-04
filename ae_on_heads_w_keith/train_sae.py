@@ -11,7 +11,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
     t0 = time.time()
     buffer.freshen_buffer()
     try:
-        wandb.init(project="autoencoders", entity="sae_all", config=cfg)
+        run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
+        
         # wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
 
         num_batches = cfg.num_tokens // cfg.batch_size
@@ -35,7 +36,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
-                print(loss_dict)
+                print(loss_dict, run.name)
             if (i) % 3000 == 2999:
                 x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder))
                 print("Reconstruction:", x)
