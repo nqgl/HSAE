@@ -41,7 +41,26 @@ class GradSignFunction(torch.autograd.Function):
     def backward(ctx, grad_output):
         return torch.sign(grad_output)
     
-def undying_relu(x, l=0.01, k=1):
+def undying_relu(x, l=0.01, k=1, l_mid_neg=None, l_low_neg = 0, l_low_pos = None):
+    if l_mid_neg is None:
+        l_mid_neg = l
+    if l_low_pos is None:
+        l_low_pos = l
+    l_mid_pos = l
+    y_forward = F.relu(x)
+    y_backward1 = x * (x > 0)
+    y_backward2_pos = l_mid_pos * NegativeGradthruIdentityFunction(x) * (torch.logical_and(x <= 0, x > -k))
+    y_backward2_neg = l_mid_neg * PositiveGradthruIdentityFunction(x) * (torch.logical_and(x <= 0, x > -k))
+    y_backward3_pos = l_low_pos * NegativeGradthruIdentityFunction(x) * (x <= -k)
+    y_backward3_neg = l_low_neg * PositiveGradthruIdentityFunction(x) * (x <= -k)
+    y_backward = y_backward1 + y_backward2_pos + y_backward2_neg + y_backward3_pos + y_backward3_neg
+    return y_backward + (y_forward - y_backward).detach()
+
+
+
+
+
+def undying_relu_old(x, l=0.01, k=1):
     """x>0: normal relu
     0 > x > -k : gradient is scaled by l like a leaky relu
     -k > x : gradient only pushes towards x increasing, so that it is able to 'un-die'"""
