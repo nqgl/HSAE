@@ -55,6 +55,7 @@ class AutoEncoderConfig:
     name :str = None
     buffer_refresh_ratio :float = 0.9
     nonlinearity :tuple = ("relu", {})
+    cosine_l1 :Optional[Dict] = None
 
 # Ithink this is gelu_2 specific
 
@@ -173,7 +174,11 @@ class AutoEncoder(nn.Module):
         self.steps_since_activation_frequency_reset = 0
 
     def get_loss(self):
-        return self.l2_loss_cached + torch.sum(self.l1_coeff * self.l1_loss_cached)
+        if self.cfg.cosine_l1 is None:
+            l1_coeff = self.l1_coeff
+        else:
+            period = self.cfg.cosine_l1["period"]
+        return self.l2_loss_cached + torch.sum(l1_coeff * self.l1_loss_cached)
 
 
     
