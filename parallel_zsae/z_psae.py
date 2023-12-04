@@ -179,7 +179,7 @@ class AutoEncoder(nn.Module):
     def get_loss(self):
         # print(self.l2_loss_cached.shape, self.l1_loss_cached.shape, self.l1_coeffs.shape)
         # print(self.l0_norm_cached.shape)
-        return torch.sum(self.l2_loss_cached + self.l1_coeffs * self.l1_loss_cached)
+        return torch.sum(self.l2_loss_cached) + torch.sum(self.l1_coeffs * self.l1_loss_cached)
 
 
     
