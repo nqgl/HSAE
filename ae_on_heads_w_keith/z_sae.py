@@ -187,9 +187,9 @@ class AutoEncoder(nn.Module):
         self.W_dec.data = W_dec_normed
 
     def get_version(self):
-        version_list = [int(file.name.split(".")[0]) for file in list(SAVE_DIR.iterdir()) if "pt" in str(file)]
+        version_list = [int(file.name.split("_")[0]) for file in list(SAVE_DIR.iterdir()) if "pt" in str(file)]
         if len(version_list):
-            return 1+max(version_list)
+            return 1 + max(version_list)
         else:
             return 0
 
