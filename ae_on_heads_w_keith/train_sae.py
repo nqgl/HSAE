@@ -39,7 +39,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             encoder_optim.zero_grad()
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
-            if (i) % 100 == 0:
+            if (i) % 200 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
             if (i) % 5000 == 1499:
@@ -57,7 +57,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 30000 == 1500 and i > 1500:
+            if (i+1) % 10000 == 1500 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -83,7 +83,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=40e-4, dict_mult=32, batch_size=256,
                                     nonlinearity=("undying_relu", {"l" : 0.00003, "k" : 1, "leaky" : True}), flatten_heads=True,
-                                    lr=1e-5, cosine_l1={"period" : 1000, "range" : 0.5}) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    lr=3e-4, cosine_l1={"period" : 100, "range" : 0.25}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
