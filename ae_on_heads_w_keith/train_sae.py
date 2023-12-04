@@ -37,7 +37,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
-            if (i) % 3000 == 2999:
+            if (i) % 5000 == 4999:
                 x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
@@ -52,7 +52,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 6000 == 1500:
+            if (i+1) % 10000 == 1500:
                 encoder.save()
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -76,7 +76,7 @@ def linspace_l1(ae, l1_radius):
 def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                                    l1_coeff=4e-3,
+                                    l1_coeff=2e-3,
                                     nonlinearity=("undying_relu", {"l" : 0.001, "k" : 1, "leaky" : True}), flatten_heads=True,
                                     lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
