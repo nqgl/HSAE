@@ -145,7 +145,7 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False):
         x_cent = x - self.b_dec
-        print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
+        # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).sum(-1).mean(0)
@@ -163,15 +163,16 @@ class AutoEncoder(nn.Module):
             activated = torch.mean((acts > 0).float(), dim=0)
             # print("activated shape", activated.shape)
             # print("freq shape", self.activation_frequency.shape)
-            self.activation_frequency[:] = activated + self.activation_frequency
+            self.activation_frequency = activated + self.activation_frequency
             self.steps_since_activation_frequency_reset += 1
         return x_reconstruct
     
-
+    @torch.no_grad()
     def reset_activation_frequencies(self):
-        self.activation_frequency[:] = 0
+        self.activation_frequency = torch.zeros_like(self.activation_frequency)
         self.steps_since_activation_frequency_reset = 0
 
+    @torch.no_grad()
     def get_loss(self):
         return self.l2_loss_cached + torch.sum(self.l1_coeff * self.l1_loss_cached)
 
