@@ -7,13 +7,14 @@ from transformer_lens import HookedTransformer
 import time
 from typing import List
 
-def train(encoder :List[z_sae.AutoEncoder], cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
+def train(aes :List[z_sae.AutoEncoder], buffer :z_sae.Buffer, model :HookedTransformer):
    
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
     t0 = time.time()
+    buffer.freshen_buffer()
     try:
-        wandb.init(project="autoencoders", entity="sae_all", config=cfg)
-        num_batches = cfg.num_tokens // cfg.batch_size
+        wandb.init(project="autoencoders", entity="sae_all", config=[ae.cfg for ae in aes])
+        num_batches = aes.cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
         encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
