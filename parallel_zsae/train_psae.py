@@ -65,9 +65,9 @@ def train(encoder :z_psae.AutoEncoder, cfg :z_psae.AutoEncoderConfig, buffer :z_
         encoder.save()
 
 
-def main():
+def main(): #1e-3, 8e-4, 6e-4
     ae_cfg = z_psae.AutoEncoderConfig(site="z", d_feature=512,
-                                     l1_coeffs=[2e-3, 15e-4, 1e-3, 8e-4, 6e-4],
+                                     l1_coeffs=[2e-3, 15e-4],
                                      nonlinearity=("undying_relu", {"l" : 0.003, "k" : 0.1}), 
                                      lrs=[3e-4], dict_mult= 8, buffer_mult = 4000)
     cfg = z_psae.post_init_cfg(ae_cfg)
