@@ -49,10 +49,10 @@ def undying_relu(x, l=0.01, k=1, l_mid_neg=None, l_low_neg = 0, l_low_pos = None
     l_mid_pos = l
     y_forward = F.relu(x)
     y_backward1 = x * (x > 0)
-    y_backward2_pos = l_mid_pos * NegativeGradthruIdentityFunction(x) * (torch.logical_and(x <= 0, x > -k))
-    y_backward2_neg = l_mid_neg * PositiveGradthruIdentityFunction(x) * (torch.logical_and(x <= 0, x > -k))
-    y_backward3_pos = l_low_pos * NegativeGradthruIdentityFunction(x) * (x <= -k)
-    y_backward3_neg = l_low_neg * PositiveGradthruIdentityFunction(x) * (x <= -k)
+    y_backward2_pos = l_mid_pos * NegativeGradthruIdentityFunction.apply(x) * (torch.logical_and(x <= 0, x > -k))
+    y_backward2_neg = l_mid_neg * PositiveGradthruIdentityFunction.apply(x) * (torch.logical_and(x <= 0, x > -k))
+    y_backward3_pos = l_low_pos * NegativeGradthruIdentityFunction.apply(x) * (x <= -k)
+    y_backward3_neg = l_low_neg * PositiveGradthruIdentityFunction.apply(x) * (x <= -k)
     y_backward = y_backward1 + y_backward2_pos + y_backward2_neg + y_backward3_pos + y_backward3_neg
     return y_backward + (y_forward - y_backward).detach()
 
