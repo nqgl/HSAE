@@ -145,6 +145,7 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False):
         x_cent = x - self.b_dec
+        print(x_cent.dtype, x.dtype, self.W_dec.dtype)
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).sum(-1).mean(0)
