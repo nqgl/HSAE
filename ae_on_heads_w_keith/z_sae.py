@@ -59,7 +59,7 @@ class AutoEncoderConfig:
 # Ithink this is gelu_2 specific
 
 
-DTYPES = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.float16}
+DTYPES = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.float16, "bfp16" : torch.bfloat16}
 SAVE_DIR = Path.home() / "workspace"
 if not SAVE_DIR.exists():
     SAVE_DIR.mkdir()
