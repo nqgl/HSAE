@@ -11,6 +11,8 @@ def train(encoder :z_psae.AutoEncoder, cfg :z_psae.AutoEncoderConfig, buffer :z_
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888")
     t0 = time.time()
     # wandbapi = wandb.Api()
+    scaler = torch.cuda.amp.GradScaler()
+
     try:
         wandb.init(project="parallelized_autoencoders", entity="sae_all", config=cfg)
         num_batches = cfg.num_tokens // cfg.batch_size
@@ -22,14 +24,18 @@ def train(encoder :z_psae.AutoEncoder, cfg :z_psae.AutoEncoderConfig, buffer :z_
         for i in tqdm.trange(num_batches):
             i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            x_reconstruct = encoder(acts)
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                x_reconstruct = encoder(acts, record_activation_frequency=True)
+                loss = encoder.get_loss()
+
             l2_loss = encoder.l2_loss_cached
             l1_loss = encoder.l1_loss_cached
             l0_norm = encoder.l0_norm_cached # TODO condisder turning this off if is slows down calculation
-            loss = encoder.get_loss()
-            loss.backward()
+            scaler.scale(loss).backward()
+            # loss.backward()
             encoder.make_decoder_weights_and_grad_unit_norm()
-            encoder_optim.step()
+            scaler.step(encoder_optim)
+            scaler.update()
             encoder_optim.zero_grad()
             loss_dict = {f"l1{cfg.l1_coeffs[l1_i]}lr{cfg.lrs[lr_i]}" : 
                          {"l2_loss": l2_loss[lr_i, l1_i].item(), "l1_loss": l1_loss[lr_i, l1_i].item(), "l0_norm": l0_norm[lr_i, l1_i].item()} 

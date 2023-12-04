@@ -149,9 +149,8 @@ class AutoEncoder(nn.Module):
         # x comes in as batch_size x d_feature
         # b_dec is lrs x l1_coeffs x 1 x d_feature
         # W_dec is lrs x l1_coeffs x d_dict x d_feature
-        x = einops.rearrange(x, "batch d_feature -> batch 1 1 1 d_feature")
-    
-        x_cent = x - self.b_dec
+        # x = einops.rearrange(x, "batch d_feature -> batch 1 1 1 d_feature")
+        x_cent = x.view(self.cfg.batch_size, 1, 1, 1, -1) - self.b_dec
         # x_cent is batch_size x lrs x l1_coeffs x 1 x d_feature
         # print(self.b_enc.shape)
         # print(self.W_enc.shape)
