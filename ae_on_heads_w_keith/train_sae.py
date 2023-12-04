@@ -25,18 +25,17 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            with torch.autocast(device_type='cuda', dtype=torch.float16):
-                x_reconstruct = encoder(acts, record_activation_frequency=True)
-                loss = encoder.get_loss()
+            x_reconstruct = encoder(acts, record_activation_frequency=True)
+            loss = encoder.get_loss()
             l2_loss = encoder.l2_loss_cached
             l1_loss = encoder.l1_loss_cached
             l0_norm = encoder.l0_norm_cached # TODO condisder turning this off if is slows down calculation
-            scaler.scale(loss).backward()
-            # loss.backward()
+            # scaler.scale(loss).backward()
+            loss.backward()
             encoder.make_decoder_weights_and_grad_unit_norm()
-            scaler.step(encoder_optim)
-            scaler.update()
-            # encoder_optim.step()
+            # scaler.step(encoder_optim)
+            # scaler.update()
+            encoder_optim.step()
             encoder_optim.zero_grad()
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
@@ -84,7 +83,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=24e-4,
                                     nonlinearity=("undying_relu", {"l" : 0, "k" : 1, "leaky" : True}), flatten_heads=True,
-                                    lr=3e-4, enc_dtype="fp32") #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    lr=3e-6, enc_dtype="fp32") #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
