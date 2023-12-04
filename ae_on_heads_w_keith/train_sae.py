@@ -13,9 +13,9 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
     scaler = torch.cuda.amp.GradScaler()
 
     try:
-        # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
+        run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         
-        run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
+        # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
 
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
