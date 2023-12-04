@@ -169,7 +169,7 @@ class AutoEncoder(nn.Module):
     
     @torch.no_grad()
     def reset_activation_frequencies(self):
-        self.activation_frequency = torch.zeros_like(self.activation_frequency)
+        self.activation_frequency[:] = 0
         self.steps_since_activation_frequency_reset = 0
 
     @torch.no_grad()
