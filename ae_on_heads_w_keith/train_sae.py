@@ -86,13 +86,15 @@ def linspace_l1(ae, l1_radius):
 # so like, l2 /= 512 
 #          l1 /= 
 # so maybe increase lr by 1-2.5 oom?
+# l1 coeff prevv got multiplied by 128 - 256 but then l2 was like 256 times too
+    # for l1 to get similar gradients, 
     
 def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=1e-3, dict_mult=8, batch_size=512,
                                     nonlinearity=("undying_relu",{"l" : 0, "leaky" : True}), flatten_heads=True,
-                                    lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    lr=2 ** -13) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
