@@ -92,7 +92,7 @@ def main():
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
-    linspace_l1(encoder, 0.1)
+    linspace_l1(encoder, 0.2)
 
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)
     train(encoder, cfg, buffer, model)
