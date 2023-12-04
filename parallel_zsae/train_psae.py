@@ -25,7 +25,7 @@ def train(encoder :z_psae.AutoEncoder, cfg :z_psae.AutoEncoderConfig, buffer :z_
             i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
             with torch.autocast(device_type='cuda', dtype=torch.float16):
-                x_reconstruct = encoder(acts, record_activation_frequency=True)
+                x_reconstruct = encoder(acts)
                 loss = encoder.get_loss()
 
             l2_loss = encoder.l2_loss_cached
