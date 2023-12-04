@@ -55,12 +55,10 @@ def re_init(model, encoder, buffer, indices):
     new_W_enc = (torch.nn.init.kaiming_uniform_(torch.zeros_like(encoder.W_enc)))
     new_W_dec = (torch.nn.init.kaiming_uniform_(torch.zeros_like(encoder.W_dec)))
     new_b_enc = (torch.zeros_like(encoder.b_enc))
-    new_b_dec = (torch.zeros_like(encoder.b_dec))
     print(new_W_dec.shape, new_W_enc.shape, new_b_enc.shape)
     encoder.W_enc.data[:, indices] = new_W_enc[:, indices]
     encoder.W_dec.data[indices, :] = new_W_dec[indices, :]
     encoder.b_enc.data[indices] = new_b_enc[indices]
-    encoder.b_dec.data[indices] = new_b_dec[indices]
 
 
 def replacement_hook(acts, hook, encoder):
