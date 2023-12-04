@@ -32,6 +32,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 l0_norm = encoder.l0_norm_cached # TODO condisder turning this off if is slows down calculation
                 loss = encoder.get_loss()
             # scaler.scale(loss).backward()
+            loss.backward()
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
