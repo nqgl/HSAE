@@ -174,8 +174,7 @@ class AutoEncoder(nn.Module):
         self.activation_frequency[:] = 0
         self.steps_since_activation_frequency_reset = 0
 
-    def get_loss(self):
-        n = 5
+    def get_loss(self, n=1):
         self.step_num += 1
         if self.cfg.cosine_l1 is None:
             l1_coeff = self.l1_coeff
