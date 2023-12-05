@@ -150,8 +150,8 @@ class AutoEncoder(nn.Module):
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
-        self.l1_loss_cached = torch.pow(acts.float().abs() + 1e-5, 0.5).mean(dim=(-2))
-        self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1).mean(0)
+        self.l1_loss_cached = torch.pow(acts.float().abs() + 1e-5, 0.5).mean(dim=(-2)) # TODO fix this embarrasment
+        self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1).mean(0) # don't tell anyone I tried this
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean()
         else:
