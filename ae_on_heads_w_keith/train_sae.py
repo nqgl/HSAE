@@ -12,7 +12,7 @@ MIN_N = 5
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
-    buffer.freshen_buffer(fresh_factor=0.5)
+    buffer.freshen_buffer(fresh_factor=0)
 
     try:
         run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
