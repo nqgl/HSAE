@@ -25,7 +25,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         recons_scores = []
         act_freq_scores_list = []
         n = 100
-        flex = 4
+        flex = 100
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
@@ -45,7 +45,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item(), "n" : n}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
-                loss_dict.update({"l0_stddev" : encoder.l0_norm_cached.std().item()})
+                flex = (flex + encoder.l0_norm_cached.std().item() + 1) / 2
+                loss_dict.update({"l0_stddev" : flex})
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
             if (i) % 5000 == 0:
