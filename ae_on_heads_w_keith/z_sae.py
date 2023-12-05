@@ -152,7 +152,7 @@ class AutoEncoder(nn.Module):
         # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
         self.l1_loss_cached = torch.pow(acts.float().abs() + 1e-5, 1) # TODO fix this embarrasment
         self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1) # don't tell anyone I tried this
-        # self.l2_loss_cached = ((x_reconstruct.float() - x.float()).pow(2).mean(-1) + 1e-5).pow(0.5)
+        self.l2_loss_cached = ((x_reconstruct.float() - x.float()).pow(2).mean(-1) + 1e-5).pow(0.5)
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1)
         else:
