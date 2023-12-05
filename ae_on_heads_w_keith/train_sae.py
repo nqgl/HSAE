@@ -60,7 +60,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 30000 == 10001 and i > 1500:
+            if (i+1) % 60000 == 10001 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -94,9 +94,9 @@ def linspace_l1(ae, l1_radius):
 def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                                    l1_coeff=8e-4, dict_mult=16, batch_size=1024,
-                                    nonlinearity=("undying_relu",{"l" : 0.001, "k" : 0.1}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.2,
-                                    lr=2 ** -12) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    l1_coeff=8e-4, dict_mult=16, batch_size=512,
+                                    nonlinearity=("undying_relu",{"l" : 0.001, "k" : 0.1}), flatten_heads=True, buffer_mult=5000, buffer_refresh_ratio=0.2,
+                                    lr=3e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
