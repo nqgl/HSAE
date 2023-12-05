@@ -36,7 +36,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
             # scaler.scale(loss).backward()
             loss.backward()
-            n = max(MIN_N, (n * 10 + l0_norm.item() - 1/10) / 11)
+            n = max(MIN_N, (n + l0_norm.item()) / 2)
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
