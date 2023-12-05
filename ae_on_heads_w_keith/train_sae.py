@@ -94,7 +94,7 @@ def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=1e-3, dict_mult=8, batch_size=1024,
-                                    nonlinearity=("relu",{}), flatten_heads=True, buffer_mult=5000, buffer_refresh_ratio=0.1,
+                                    nonlinearity=("relu",{}), flatten_heads=True, buffer_mult=4000, buffer_refresh_ratio=0.1,
                                     lr=2 ** -11) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
