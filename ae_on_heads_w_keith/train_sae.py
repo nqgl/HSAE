@@ -42,8 +42,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
-            if (i) % 5000 == 1499:
-                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=2))
+            if (i) % 2000 == 0:
+                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=10))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
                 
@@ -59,7 +59,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 30000 == 21500 and i > 1500:
+            if (i+1) % 30000 == 10001 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -94,8 +94,8 @@ def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=1e-3, dict_mult=16, batch_size=256,
-                                    nonlinearity=("relu",{}), flatten_heads=True, buffer_mult=30000, buffer_refresh_ratio=0.2,
-                                    lr=2 ** -11) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    nonlinearity=("relu",{}), flatten_heads=True, buffer_mult=30000, buffer_refresh_ratio=0.25,
+                                    lr=2 ** -10) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
