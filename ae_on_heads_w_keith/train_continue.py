@@ -112,7 +112,7 @@ def main():
     linspace_l1(encoder, 0.2)
 
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)
-    train(encoder, cfg, buffer, model)
+    train_sae.train(encoder, cfg, buffer, model)
 
 if __name__ == "__main__":
     main()
