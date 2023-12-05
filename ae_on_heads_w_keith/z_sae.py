@@ -185,7 +185,7 @@ class AutoEncoder(nn.Module):
         l0l1_multiplier = self.l0_norm_cached.reshape(-1, 1)
         l0l1_multiplier = torch.max(torch.tensor(1), l0l1_multiplier - n)
 
-        l0l2_multiplier = torch.max(1, n + 2 - self.l0_norm_cached)
+        l0l2_multiplier = torch.max(torch.tensor(1), n + 2 - self.l0_norm_cached)
         return torch.mean(self.l2_loss_cached) + torch.sum(torch.mean(l1_coeff * self.l1_loss_cached * l0l1_multiplier, dim=0))
 
 
