@@ -291,8 +291,8 @@ class Buffer():
             n = (0.5 * self.cfg.buffer_size) // self.cfg.batch_size
             self.pointer += n * self.cfg.batch_size
             self.refresh()
-        n = ((1 - self.cfg.buffer_refresh_ratio) * self.cfg.buffer_size) // self.cfg.batch_size
-        for _ in range(1 + int(fresh_factor / (1 - self.cfg.buffer_refresh_ratio))):
+        n = ((self.cfg.buffer_refresh_ratio) * self.cfg.buffer_size) // self.cfg.batch_size
+        for _ in range(1 + int(fresh_factor / (self.cfg.buffer_refresh_ratio))):
             self.pointer += (n + 1) * self.cfg.batch_size
             self.refresh()
 
