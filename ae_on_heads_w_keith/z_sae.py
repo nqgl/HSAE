@@ -196,7 +196,7 @@ class AutoEncoder(nn.Module):
         else:
             l0l2_multiplier = torch.max(torch.tensor(1, device="cuda"), n - too_sparse_l2_multiplier - self.l0_norm_cached)
 
-        return torch.mean(self.l2_loss_cached * l0l2_multiplier) + torch.pow(torch.sum(torch.mean(l1_coeff * self.l1_loss_cached * (l0l1_multiplier), dim=0)), 2)
+        return torch.mean(self.l2_loss_cached * l0l2_multiplier) + torch.pow(torch.sum(torch.mean(l1_coeff * self.l1_loss_cached * (l0l1_multiplier), dim=0)), 1)
 
 
     
