@@ -30,7 +30,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
-            loss = encoder.get_weird_loss(n = n, too_sparse_l2_multiplier= flex )
+            loss = encoder.get_weird_loss(n = n, too_sparse_l2_multiplier= None )
             l2_loss = encoder.l2_loss_cached.mean()
             l1_loss = encoder.l1_loss_cached.mean()
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
