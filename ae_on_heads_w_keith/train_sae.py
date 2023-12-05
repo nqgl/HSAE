@@ -93,8 +93,8 @@ def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=1e-3, dict_mult=8, batch_size=512,
-                                    nonlinearity=("undying_relu",{"l" : 0, "leaky" : True}), flatten_heads=True,
-                                    lr=2 ** -13) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    nonlinearity=("relu",{}), flatten_heads=True,
+                                    lr=2 ** -10) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
