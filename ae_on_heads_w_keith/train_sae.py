@@ -63,7 +63,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
                 freqs = encoder.activation_frequency / encoder.steps_since_activation_frequency_reset
-                to_be_reset = (freqs<10**(-5.5))
+                to_be_reset = (freqs<10**(-6.5))
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
                     re_init(model, encoder, buffer, to_be_reset)
@@ -92,9 +92,9 @@ def linspace_l1(ae, l1_radius):
 def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                                    l1_coeff=1e-3, dict_mult=8, batch_size=512,
+                                    l1_coeff=1e-3, dict_mult=8, batch_size=1024,
                                     nonlinearity=("relu",{}), flatten_heads=True,
-                                    lr=2 ** -10) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    lr=2 ** -11) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
