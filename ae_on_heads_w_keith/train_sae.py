@@ -9,7 +9,7 @@ import time
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
-    buffer.freshen_buffer(fresh_factor=1)
+    buffer.freshen_buffer(fresh_factor=0.5)
     scaler = torch.cuda.amp.GradScaler()
 
     try:
@@ -42,8 +42,9 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
-            if (i) % 2000 == 0:
-                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=10))
+            if (i) % 5000 == 0:
+                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=1))
+                buffer.refresh()
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
                 
@@ -93,8 +94,8 @@ def linspace_l1(ae, l1_radius):
 def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                                    l1_coeff=1e-3, dict_mult=16, batch_size=512,
-                                    nonlinearity=("relu",{}), flatten_heads=True, buffer_mult=20000, buffer_refresh_ratio=0.25,
+                                    l1_coeff=1e-3, dict_mult=16, batch_size=1024,
+                                    nonlinearity=("relu",{}), flatten_heads=True, buffer_mult=4000, buffer_refresh_ratio=0.05,
                                     lr=2 ** -10) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
