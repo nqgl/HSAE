@@ -41,7 +41,7 @@ class AutoEncoderConfig:
     seq_len :int = 128
     layer :int = 0
     enc_dtype :str = "fp32"
-    model_name :str = "gelu-1l"
+    model_name :str = "gelu-2l"
     site :str = "" # z?
     device :str = "cuda"
     remove_rare_dir :bool = False
@@ -119,6 +119,8 @@ def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
 class AutoEncoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
+        if cfg.dict_size is None:
+            post_init_cfg(cfg)
         d_dict = cfg.dict_size
         l1_coeff = cfg.l1_coeff
         dtype = DTYPES[cfg.enc_dtype]
@@ -201,6 +203,7 @@ class AutoEncoder(nn.Module):
         self.W_dec.grad -= W_dec_grad_proj
         # Bugfix(?) for ensuring W_dec retains unit norm, this was not there when I trained my original autoencoders.
         self.W_dec.data = W_dec_normed
+        
     @staticmethod
     def get_version():
         version_list = [int(file.name.split("_")[0]) for file in list(SAVE_DIR.iterdir()) if "_cfg.json" in str(file)]
