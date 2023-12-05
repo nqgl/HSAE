@@ -30,7 +30,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
-            loss = encoder.get_loss(n = n, down_flex = flex )
+            loss = encoder.get_loss(n = n, down_flex = flex/2 )
             l2_loss = encoder.l2_loss_cached.mean()
             l1_loss = encoder.l1_loss_cached.mean()
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
@@ -45,7 +45,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item(), "n" : n}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
-                flex = (flex * 10 + encoder.l0_norm_cached.std().item() + 1) / 11
+                flex = (flex * 4 + encoder.l0_norm_cached.std().item() + 1) / 5
                 loss_dict.update({"l0_stddev" : flex})
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
@@ -67,7 +67,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 10000 == 5001 and i > 1500:
+            if (i+1) % 40000 == 5001 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
