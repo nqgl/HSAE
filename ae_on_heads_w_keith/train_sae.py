@@ -98,9 +98,9 @@ def linspace_l1(ae, l1_radius):
 # l1 coeff prevv got multiplied by 128 - 256 but then l2 was like 256 times too
     # for l1 to get similar gradients, 
 ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                            l1_coeff=7e-4, dict_mult=32, batch_size=512, beta2=0.99,
+                            l1_coeff=6e-4, dict_mult=32, batch_size=512, beta2=0.99,
                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.30,
-                            lr=3e-4, cosine_l1={"period": 99, "range" : 0.0}) #original 3e-4 8e-4 or same but 1e-3 on l1
+                            lr=1e-4, cosine_l1={"period": 99, "range" : 0.0}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
@@ -111,7 +111,7 @@ def main():
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
-    linspace_l1(encoder, 00)
+    linspace_l1(encoder, 0)
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)
     train(encoder, cfg, buffer, model)
 
