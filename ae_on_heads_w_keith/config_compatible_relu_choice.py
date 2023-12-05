@@ -8,6 +8,7 @@ nonlinearity_dict = {
     "undying_relu" : gradcool_functions.undying_relu,
     "undying_relu_2phase" : gradcool_functions.undying_relu_2phases,
     "undying_relu_extra_negative" : gradcool_functions.undying_relu_extra_negative,
+    "shelf_relu" : gradcool_functions.shelf_relu,
 }
 
 def cfg_to_nonlinearity(cfg):

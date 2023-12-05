@@ -127,6 +127,9 @@ def undying_relu_2phase_leaky_gradient(x, l=0.01):
 # def undying_relu_2phases(x, l=0.001, k=0):
 #     return UndyingReLU2Phases.apply(x, k, l)
 
+def shelf_relu(x, shelf_size=1):
+    return torch.where(x < -shelf_size, x + shelf_size, F.relu(x))
+
 def main():
     x_ = torch.arange(10)/10 - 0.5
     x_.requires_grad = True
