@@ -175,7 +175,7 @@ class AutoEncoder(nn.Module):
         self.activation_frequency[:] = 0
         self.steps_since_activation_frequency_reset = 0
 
-    def get_loss(self, n=1):
+    def get_loss(self, n=1, down_flex=1):
         self.step_num += 1
         if self.cfg.cosine_l1 is None:
             l1_coeff = self.l1_coeff
@@ -186,7 +186,7 @@ class AutoEncoder(nn.Module):
         l0l1_multiplier = self.l0_norm_cached.reshape(-1, 1)
         l0l1_multiplier = torch.max(torch.tensor(1), l0l1_multiplier - n)
 
-        l0l2_multiplier = torch.max(torch.tensor(1), n + 1 - self.l0_norm_cached)
+        l0l2_multiplier = torch.max(torch.tensor(1), n + down_flex - self.l0_norm_cached)
         return torch.mean(self.l2_loss_cached * l0l2_multiplier) + torch.sum(torch.mean(l1_coeff * self.l1_loss_cached * l0l1_multiplier, dim=0))
 
 

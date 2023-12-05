@@ -6,6 +6,9 @@ from .calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import time
 
+MIN_N = 5
+
+
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
@@ -22,17 +25,18 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         recons_scores = []
         act_freq_scores_list = []
         n = 100
+        flex = 5
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
-            loss = encoder.get_loss(n = n)
+            loss = encoder.get_loss(n = n, down_flex = flex)
             l2_loss = encoder.l2_loss_cached.mean()
             l1_loss = encoder.l1_loss_cached.mean()
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
             # scaler.scale(loss).backward()
             loss.backward()
-            n = max(1, (n + l0_norm.item() - 4) / 2)
+            n = max(MIN_N, (n + l0_norm.item() - flex) / 2)
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
@@ -41,6 +45,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item(), "n" : n}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
+                loss_dict.update({"l0_stddev" : encoder.l0_norm_cached.std().item()})
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
             if (i) % 5000 == 0:
@@ -95,7 +100,7 @@ def linspace_l1(ae, l1_radius):
 def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                                    l1_coeff=28e-4, dict_mult=32, batch_size=512, beta2=0.99,
+                                    l1_coeff=8e-4, dict_mult=32, batch_size=512, beta2=0.99,
                                     nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.30,
                                     lr=3e-4, cosine_l1={"period": 6263, "range" : 0}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
