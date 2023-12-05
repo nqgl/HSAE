@@ -35,8 +35,8 @@ class AutoEncoderConfig:
     lr :int = 3e-4
     num_tokens :int = int(2e9)
     l1_coeff :Union[float, List[float]] = 8e-4
-    beta1 :int = 0.9
-    beta2 :int = 0.99
+    beta1 :float = 0.9
+    beta2 :float = 0.99
     dict_mult :int = 32
     seq_len :int = 128
     layer :int = 0
