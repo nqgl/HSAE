@@ -67,12 +67,12 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 40000 == 35001 and i > 1500:
+            if (i+1) % 80000 == 35001 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
                 freqs = encoder.activation_frequency / encoder.steps_since_activation_frequency_reset
-                to_be_reset = (freqs<10**(-6.5))
+                to_be_reset = (freqs<10**(-7))
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
                     re_init(model, encoder, buffer, to_be_reset)
@@ -100,7 +100,7 @@ def linspace_l1(ae, l1_radius):
 ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                             l1_coeff=16e-4, dict_mult=64, batch_size=512, beta2=0.99,
                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.30,
-                            lr=3e-4, cosine_l1={"period": 99, "range" : 0.0}) #original 3e-4 8e-4 or same but 1e-3 on l1
+                            lr=3e-4, cosine_l1={"period": 78300, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
