@@ -59,7 +59,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 60000 == 10001 and i > 1500:
+            if (i+1) % 10000 == 5001 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -94,8 +94,8 @@ def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=7e-4, dict_mult=16, batch_size=256, beta2=0.999,
-                                    nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=20000, buffer_refresh_ratio=0.2,
-                                    lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=24000, buffer_refresh_ratio=0.25,
+                                    lr=1e-3) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
