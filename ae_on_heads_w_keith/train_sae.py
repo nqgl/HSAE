@@ -24,7 +24,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
-        n = 100
+        n = 1000
         flex = 10000
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
@@ -36,7 +36,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
             # scaler.scale(loss).backward()
             loss.backward()
-            n = max(MIN_N, (n + l0_norm.item()) / 2)
+            n = max(MIN_N, (n * 4 + l0_norm.item()) / 5)
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
