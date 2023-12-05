@@ -108,7 +108,7 @@ def main():
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
-    encoder = z_sae.AutoEncoder.load_latest(cfg = cfg)
+    encoder = z_sae.AutoEncoder.load_latest(new_cfg = cfg)
     linspace_l1(encoder, 0.2)
 
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)
