@@ -152,7 +152,7 @@ class AutoEncoder(nn.Module):
         # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
         self.l1_loss_cached = torch.pow(acts.float().abs() + 1e-5, 1) # TODO fix this embarrasment
         self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1) # don't tell anyone I tried this
-        self.l2_loss_cached = ((x_reconstruct.float() - x.float()).pow(2).mean(-1) + 1e-5).pow(0.5)
+        # self.l2_loss_cached = ((x_reconstruct.float() - x.float()).pow(2).mean(-1) + 1e-5).pow(0.5)
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1)
         else:
@@ -217,14 +217,28 @@ class AutoEncoder(nn.Module):
         print("Saved as version", version)
 
     @classmethod
-    def load(cls, version):
-        cfg = (json.load(open(SAVE_DIR/(str(version)+"_cfg.json"), "r")))
-        cfg = AutoEncoderConfig(**cfg)
+    def load(cls, version, cfg = None):
+        # get correct name with globbing
+        import glob
+        if cfg is None:
+            cfg_name = glob.glob(str(SAVE_DIR/(str(version)+"*_cfg.json")))
+            cfg = json.load(open(cfg_name[0]))
+            cfg = AutoEncoderConfig(**cfg)
+        pt_name = glob.glob(str(SAVE_DIR/(str(version)+"*.pt")))
         pprint.pprint(cfg)
         self = cls(cfg=cfg)
-        self.load_state_dict(torch.load(SAVE_DIR/(str(version)+".pt")))
+        self.load_state_dict(torch.load(pt_name[0]))
         return self
 
+    def load_latest(cls, new_cfg = None):
+        version = cls.get_latest_version() - 1
+        if new_cfg is not None:
+            ae.cfg = new_cfg
+
+        else:
+            ae = cls.load(version)
+
+        return ae
 
 
 # I might come back to this and think about changing refresh ratio up
