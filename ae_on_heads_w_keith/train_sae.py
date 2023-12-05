@@ -21,7 +21,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
-        n = 1000
+        n = 100
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
@@ -32,7 +32,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
             # scaler.scale(loss).backward()
             loss.backward()
-            n = max(1, (n +l0_norm.item()) / 2)
+            n = max(1, (n + l0_norm.item() - 0.5) / 2)
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
@@ -61,7 +61,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 100000 == 5001 and i > 1500:
+            if (i+1) % 10000 == 5001 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -97,7 +97,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=8e-4, dict_mult=32, batch_size=512, beta2=0.99,
                                     nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.30,
-                                    lr=3e-4, cosine_l1={"period": 6263, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    lr=3e-4, cosine_l1={"period": 6263, "range" : 0}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
