@@ -45,7 +45,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item(), "n" : n}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
-                flex = (flex + encoder.l0_norm_cached.std().item() + 1) / 2
+                flex = (flex * 10 + encoder.l0_norm_cached.std().item() + 1) / 11
                 loss_dict.update({"l0_stddev" : flex})
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
