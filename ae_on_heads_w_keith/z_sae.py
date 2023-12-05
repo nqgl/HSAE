@@ -153,8 +153,8 @@ class AutoEncoder(nn.Module):
         x_reconstruct = acts @ self.W_dec + self.b_dec
         # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
         self.l1_loss_cached = torch.pow(acts.float().abs() + 1, 1) # TODO fix this embarrasment
-        self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1) # don't tell anyone I tried this
-        # self.l2_loss_cached = ((x_reconstruct.float() - x.float()).pow(2).mean(-1) + 1e-5)
+        # self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1) # don't tell anyone I tried this
+        self.l2_loss_cached = ((x_reconstruct.float() - x.float()).pow(2).mean(-1) + 1e-5)
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1)
         else:
@@ -196,7 +196,7 @@ class AutoEncoder(nn.Module):
         else:
             l0l2_multiplier = torch.max(torch.tensor(1, device="cuda"), n - too_sparse_l2_multiplier - self.l0_norm_cached)
 
-        return torch.mean(self.l2_loss_cached * l0l2_multiplier) + torch.pow(torch.sum(torch.mean(l1_coeff * self.l1_loss_cached * (l0l1_multiplier), dim=0)), 1)
+        return torch.mean(self.l2_loss_cached * l0l2_multiplier) + torch.pow(torch.sum(torch.mean(l1_coeff * self.l1_loss_cached * (l0l1_multiplier), dim=0)), 2)
 
 
     
