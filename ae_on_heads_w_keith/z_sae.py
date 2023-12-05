@@ -188,8 +188,8 @@ class AutoEncoder(nn.Module):
         l0l1_multiplier_sq = (l0l1_multiplier / 4).pow(2)
         l0l1_special = torch.min(l0l1_multiplier + 1, l0l1_multiplier_sq)
         l0l2_multiplier = torch.max(torch.tensor(1, device="cuda"), n - down_flex - self.l0_norm_cached)
-        l0l2_multiplier = 1
-        return torch.mean(self.l2_loss_cached * l0l2_multiplier) + torch.sum(torch.mean(l1_coeff * self.l1_loss_cached * l0l1_multiplier, dim=0))
+        # l0l2_multiplier = 1
+        return torch.mean(self.l2_loss_cached * l0l2_multiplier) + torch.sum(torch.mean(l1_coeff * self.l1_loss_cached * l0l1_special, dim=0))
 
 
     
