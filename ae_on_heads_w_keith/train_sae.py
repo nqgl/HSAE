@@ -19,6 +19,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
         encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
+        encoder_optim = torch.optim.AdamW()
         recons_scores = []
         act_freq_scores_list = []
         for i in tqdm.trange(num_batches):
@@ -93,7 +94,7 @@ def main():
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
                                     l1_coeff=1e-3, dict_mult=8, batch_size=512,
-                                    nonlinearity=("relu",{}), flatten_heads=True, buffer_mult=10000, buffer_refresh_ratio=0.1,
+                                    nonlinearity=("relu",{}), flatten_heads=True, buffer_mult=20000, buffer_refresh_ratio=0.1,
                                     lr=2 ** -11) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
