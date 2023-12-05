@@ -5,7 +5,7 @@ import torch
 from .calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import time
-
+from . import train_sae
 MIN_N = 5
 
 
@@ -100,10 +100,7 @@ def linspace_l1(ae, l1_radius):
     
 def main():
 
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                                    l1_coeff=8e-4, dict_mult=32, batch_size=512, beta2=0.99,
-                                    nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.30,
-                                    lr=3e-4, cosine_l1={"period": 2263, "range" : 0.0}) #original 3e-4 8e-4 or same but 1e-3 on l1
+    ae_cfg = train_sae.ae_cfg
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
@@ -111,7 +108,7 @@ def main():
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
-    encoder = z_sae.AutoEncoder.load_latest()
+    encoder = z_sae.AutoEncoder.load_latest(cfg = cfg)
     linspace_l1(encoder, 0.2)
 
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)

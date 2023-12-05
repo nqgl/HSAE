@@ -229,7 +229,7 @@ class AutoEncoder(nn.Module):
         self = cls(cfg=cfg)
         self.load_state_dict(torch.load(pt_name[0]))
         return self
-
+    @classmethod
     def load_latest(cls, new_cfg = None):
         version = cls.get_latest_version() - 1
         if new_cfg is not None:
