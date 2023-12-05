@@ -232,7 +232,6 @@ class Buffer():
         self.token_pointer = 0
         self.first = True
         self.all_tokens = tokens
-        self.cfg.buffer_refresh_ratio = 0.9
         self.model = model
         self.time_shuffling = 0
         self.refresh()
