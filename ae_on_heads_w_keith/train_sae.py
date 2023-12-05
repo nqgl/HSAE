@@ -36,7 +36,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
             # scaler.scale(loss).backward()
             loss.backward()
-            n = max(MIN_N, (n * 4 + l0_norm.item() + flex/10) / 5)
+            n = max(MIN_N, (n * 4 + l0_norm.item() + flex/10 - 5) / 5)
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
@@ -98,7 +98,7 @@ def linspace_l1(ae, l1_radius):
 # l1 coeff prevv got multiplied by 128 - 256 but then l2 was like 256 times too
     # for l1 to get similar gradients, 
 ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, 
-                            l1_coeff=4e-4, dict_mult=32, batch_size=512, beta2=0.99,
+                            l1_coeff=7e-4, dict_mult=32, batch_size=512, beta2=0.99,
                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.30,
                             lr=3e-4, cosine_l1={"period": 99, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
