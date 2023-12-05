@@ -25,7 +25,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         recons_scores = []
         act_freq_scores_list = []
         n = 100
-        flex = 5
+        flex = 10
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
