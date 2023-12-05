@@ -231,7 +231,7 @@ class AutoEncoder(nn.Module):
         return self
     @classmethod
     def load_latest(cls, new_cfg = None):
-        version = cls.get_latest_version() - 1
+        version = cls.get_version() - 1
         if new_cfg is not None:
             ae.cfg = new_cfg
 
