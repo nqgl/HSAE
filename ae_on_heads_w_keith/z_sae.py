@@ -53,7 +53,7 @@ class AutoEncoderConfig:
     act_name :str = None
     dict_size :int = None
     name :str = None
-    buffer_refresh_ratio :float = 0.9
+    buffer_refresh_ratio :float = 0.1
     nonlinearity :tuple = ("relu", {})
     cosine_l1 :Optional[Dict] = None
 
