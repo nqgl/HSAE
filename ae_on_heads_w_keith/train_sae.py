@@ -40,9 +40,9 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             encoder_optim.step()
             encoder_optim.zero_grad()
             if i % 400 == 99 and encoder.to_be_reset is not None:
+                wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.sum()})
                 encoder.re_init_neurons(acts.float() - x_reconstruct.float())
                 encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
-                wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.sum()})
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
