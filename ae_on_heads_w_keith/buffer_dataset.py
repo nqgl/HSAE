@@ -209,13 +209,14 @@ class ToGpuQueue(Process):
 
     def run(self):
         while True:
-            x = self.queue.get()
+            x = self.srcq.get()
             self.queue.put(x.to(self.device))
 
     def next(self):
         if self.queue.empty():
             return self.srcq.get().to(self.device)
         else:
+            # print("gpuq hit")
             return self.queue.get()
 
 class BufferSampler(Sampler):
