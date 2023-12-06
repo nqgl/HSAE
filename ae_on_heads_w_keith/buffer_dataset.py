@@ -217,8 +217,8 @@ class ToGpuQueue(Process):
             self.queue.put(self.srcq.get().to(self.device))
     @torch.no_grad()
     def next(self):
+        return self.srcq.get().to(self.device)
         if self.queue.empty():
-            return self.srcq.get().to(self.device)
         else:
             # print("gpuq hit")
             return self.queue.get()
