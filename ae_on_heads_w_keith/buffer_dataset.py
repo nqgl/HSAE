@@ -109,7 +109,7 @@ class BufferRefresher(Process):
 
             # print("put")
             while self.queue.qsize() > 400:
-                if self.pointer > self.cfg.buffer_size * self.cfg.buffer_refresh_ratio // 4:
+                if self.pointer > self.cfg.buffer_size * self.cfg.buffer_refresh_ratio // 2:
                     print("preempt")
                     self.refresh()
                 else:
