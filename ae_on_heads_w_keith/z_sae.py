@@ -57,6 +57,7 @@ class AutoEncoderConfig:
     nonlinearity :tuple = ("relu", {})
     cosine_l1 :Optional[Dict] = None
     experimental_type: Optional[str] = None
+    gram_shmidt_trail :int = 5000
 
 # Ithink this is gelu_2 specific
 
@@ -185,7 +186,8 @@ class AutoEncoder(nn.Module):
 
     
     @torch.no_grad()
-    def re_init_neurons_gram_shmidt_precise(self, x_diff, t = 5000):
+    def re_init_neurons_gram_shmidt_precise(self, x_diff):
+        t = self.cfg.gram_shmidt_trail
         n_reset = min(x_diff.shape[0], self.cfg.act_size // 2)
         v_orth = torch.zeros_like(x_diff)
         # print(x_diff.shape)
