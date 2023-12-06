@@ -70,7 +70,6 @@ class BufferDataset(Dataset):
         self.token_pointer = 0
         self.device = device
         self.all_tokens = tokens
-        self.time_shuffling = 0
         self.refresh()
 
 
@@ -83,6 +82,7 @@ class BufferRefresher(Process):
         self.device = device
         self.model = model
         self.cfg = cfg
+        self.time_shuffling = 0
         self.all_tokens = tokens
         self.model = model
         self.queue = Queue(maxsize=50)
