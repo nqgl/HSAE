@@ -13,8 +13,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
     buffer.freshen_buffer(fresh_factor=0.5)
 
     try:
-        run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
-        # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
+        # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
+        run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
 
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
@@ -89,7 +89,7 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
         encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
-        for i in tqdm.trange(num_batches):
+        for acts in dataloader:
             # i = i % buffer.all_tokens.shape[0]
             # acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
