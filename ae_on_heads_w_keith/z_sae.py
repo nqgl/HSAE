@@ -56,6 +56,7 @@ class AutoEncoderConfig:
     buffer_refresh_ratio :float = 0.1
     nonlinearity :tuple = ("relu", {})
     cosine_l1 :Optional[Dict] = None
+    experimental_type: Optional[str] = None
 
 # Ithink this is gelu_2 specific
 
