@@ -91,7 +91,7 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
         act_freq_scores_list = []
         data = iter(dataloader)
         for i in tqdm.trange(num_batches):
-            acts = next(data)
+            acts = next(data).to(cfg.device)
             # i = i % buffer.all_tokens.shape[0]
             # acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
