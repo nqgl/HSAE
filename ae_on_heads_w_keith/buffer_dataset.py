@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass, asdict
 from . import config_compatible_relu_choice
 from typing import List, Tuple, Dict, Optional, Union, Callable
-from torch.utils.data import Sampler
+from torch.utils.data import Sampler, Dataset
 
 
 @dataclass
@@ -58,12 +58,13 @@ class AutoEncoderConfig:
 # I might come back to this and think about changing refresh ratio up
 # also is there a pipelining efficiency we could add?
 # is it bad to have like 2 gb of tokens in memory?
-class Buffer():
+class BufferDataset(Dataset):
     """
     This defines a data buffer, to store a bunch of MLP acts that can be used to train the autoencoder.
     It'll automatically run the model to generate more when it gets halfway empty.
     """
     def __init__(self, cfg, tokens, model):
+        super().__init__()
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False).to(cfg.device)
         self.cfg :AutoEncoderConfig = cfg
         self.token_pointer = 0
@@ -134,31 +135,32 @@ class Buffer():
             self.refresh()
 
     def __len__(self):
-        return len(self.all_tokens) // self.cfg.batch_size
-    
+        return len(self.all_tokens) // self.cfg.batch_size    
 
 
     def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
+        # if torch.is_tensor(idx):
+            # idx = idx.tolist()
         return self.buffer[idx]
     
 class BufferSampler(Sampler):
     def __init__(self, data_source):
         self.data_source = data_source
+        # do I need a lock? let's try and find out
 
     def __iter__(self):
         while True:
             # If the buffer is running low, refresh it
-            if self.data_source.token_pointer + self.data_source.cfg.batch_size > self.data_source.cfg.buffer_size:
+
+            if self.data_source.pointer > int(self.data_source.buffer.shape[0] * self.data_source.cfg.buffer_refresh_ratio) - self.data_source.cfg.batch_size:
                 self.data_source.refresh()
 
             # Yield the next batch of indices from the buffer
-            indices = range(self.data_source.token_pointer, self.data_source.token_pointer + self.data_source.cfg.batch_size)
+            self.data_source.token_pointer += self.data_source.cfg.batch_size
+            indices = torch.arange(self.data_source.token_pointer - self.data_source.cfg.batch_size, self.data_source.token_pointer)
             yield indices
 
             # Move the pointer
-            self.data_source.token_pointer += self.data_source.cfg.batch_size
 
     def __len__(self):
         return len(self.data_source)
