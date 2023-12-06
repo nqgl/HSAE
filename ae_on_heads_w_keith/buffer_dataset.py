@@ -89,11 +89,8 @@ class BufferRefresher(Process):
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.token_pointer = 0
         self.first = True
-        self.started = False
-
 
     def run(self):
-        self.started = True
         self.refresh()
         print("starting")
         while True:
@@ -165,8 +162,6 @@ class BufferRefresher(Process):
 
     @torch.no_grad()
     def next(self):
-        if not self.started:
-            self.start()
         return self.queue.get()
 
 
