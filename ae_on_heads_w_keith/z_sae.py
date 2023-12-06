@@ -143,7 +143,7 @@ class AutoEncoder(nn.Module):
         self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
         self.steps_since_activation_frequency_reset = 0
-
+        self.to_be_reset = None
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False):
         x_cent = x - self.b_dec
@@ -151,8 +151,10 @@ class AutoEncoder(nn.Module):
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
+        x_diff = x_reconstruct.float() - x.float()
+        self.re_init_neurons(x_diff)
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
-        self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
+        self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean()
         else:
@@ -171,6 +173,25 @@ class AutoEncoder(nn.Module):
         return x_reconstruct
     
     @torch.no_grad()
+    def neurons_to_reset(self, to_be_reset):
+        if to_be_reset.sum() > 0:
+            self.to_be_reset = to_be_reset
+        else:
+            self.to_be_reset = None
+    
+    @torch.no_grad()
+    def re_init_neurons(self, x_diff):
+        n_reset = x_diff.shape[0]
+        v_orth = torch.zeros_like(x_diff)
+        v_orth[0] = F.normalize(x_diff[0])
+        for i in range(1, n_reset):
+            v_orth[i] = F.normalize(x_diff[i] - (v_orth[:i] * x_diff[i]).sum(0))
+        print("is it orth?:", (v_orth @ v_orth.T)[30:40, 30:40].abs())
+
+
+
+
+    @torch.no_grad()
     def reset_activation_frequencies(self):
         self.activation_frequency[:] = 0
         self.steps_since_activation_frequency_reset = 0
@@ -184,8 +205,6 @@ class AutoEncoder(nn.Module):
             l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
         return torch.mean(self.l2_loss_cached) + torch.sum(l1_coeff * self.l1_loss_cached)
 
-
-    
 
     @torch.no_grad()
     def make_decoder_weights_and_grad_unit_norm(self):

@@ -25,6 +25,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
+            if i % 100 == 99 and encoder.neurons_reset != None:
+
             x_reconstruct = encoder(acts, record_activation_frequency=True)
             loss = encoder.get_loss()
             l2_loss = encoder.l2_loss_cached.mean()
@@ -44,7 +46,6 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 print(loss_dict, run.name)
             if (i) % 5000 == 0:
                 x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=1))
-                buffer.refresh()
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
                 
