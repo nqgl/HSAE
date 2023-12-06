@@ -78,10 +78,10 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
     # buffer.freshen_buffer(fresh_factor=0.5)
-    buffer.run()
+    buffer.start()
     try:
-        run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
-        # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
+        # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
+        run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
 
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
