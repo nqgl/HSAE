@@ -162,7 +162,7 @@ class BufferRefresher(Process):
 
         self.pointer = 0
         print("Shuffling")
-        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0], device=self.device)]
+        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.device)]
         print("shuffled")
         self.time_shuffling += time.time() - t0
 
