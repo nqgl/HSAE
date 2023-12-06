@@ -88,13 +88,14 @@ class BufferRefresher(Process):
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.token_pointer = 0
         self.first = True
-        set_start_method('spawn', force=True)
         self.refresh()
 
     def run(self):
         self.refresh()
         print("starting")
         while True:
+            print("putting")
+            self.queue.put(self._next())
             while self.queue.qsize() > 50:
                 time.sleep(0.1)
             # If the buffer is running low, refresh it
@@ -103,8 +104,6 @@ class BufferRefresher(Process):
 
             # Push the next batch of data into the queue
             # batch = self.buffer[self.token_pointer:self.token_pointer + self.cfg.batch_size]
-            print("putting")
-            self.queue.put(self._next())
 
 
 
