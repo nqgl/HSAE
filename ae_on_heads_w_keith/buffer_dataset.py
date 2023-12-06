@@ -66,7 +66,6 @@ class BufferDataset(Dataset):
     """
     def __init__(self, cfg, tokens, model, device = None):
         super().__init__()
-        device = cfg.device if device is None else device
         self.cfg :AutoEncoderConfig = cfg
         self.token_pointer = 0
         self.device = device
@@ -78,8 +77,10 @@ class BufferDataset(Dataset):
 from multiprocessing import Process, Queue
 
 class BufferRefresher(Process):
-    def __init__(self, cfg, tokens, model):
+    def __init__(self, cfg, tokens, model, device=None):
         super(BufferRefresher, self).__init__()
+        device = cfg.device if device is None else device
+        self.device = device
         self.model = model
         self.cfg = cfg
         self.tokens = tokens
