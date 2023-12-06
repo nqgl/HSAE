@@ -98,6 +98,8 @@ class BufferRefresher(Process):
             self.queue.put(self._next())
             # print("put")
             while self.queue.qsize() > 50:
+                if self.pointer != 0:
+                    self.refresh()
                 time.sleep(0.01)
             # If the buffer is running low, refresh it
             # if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
@@ -116,12 +118,13 @@ class BufferRefresher(Process):
     @torch.no_grad()
     def refresh(self):
         t0 = time.time()
+        num_batches = (self.cfg.buffer_batches - self.pointer // self.cfg.batch_size )
         self.pointer = 0
         with torch.autocast("cuda", torch.float16):
             if self.first:
                 num_batches = self.cfg.buffer_batches
-            else:
-                num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
+            # else:
+            #     num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
             self.first = False
             print("for")
             for _ in range(0, num_batches, self.cfg.model_batch_size):
