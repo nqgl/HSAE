@@ -119,7 +119,7 @@ class BufferRefresher(Process):
     @torch.no_grad()
     def refresh(self):
         t0 = time.time()
-        num_batches = (self.cfg.buffer_batches - self.pointer // self.cfg.batch_size )
+        num_batches = ((self.pointer // self.cfg.batch_size))
         self.pointer = 0
         with torch.autocast("cuda", torch.float16):
             if self.first:
