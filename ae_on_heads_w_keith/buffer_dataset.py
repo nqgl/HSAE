@@ -218,10 +218,10 @@ class ToGpuQueue(Process):
     @torch.no_grad()
     def next(self):
         return self.srcq.get().to(self.device)
-        if self.queue.empty():
-        else:
-            # print("gpuq hit")
-            return self.queue.get()
+        # if self.queue.empty():
+        # else:
+        #     # print("gpuq hit")
+        #     return self.queue.get()
 
 class BufferSampler(Sampler):
     def __init__(self, data_source):

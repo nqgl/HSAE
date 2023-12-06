@@ -177,7 +177,7 @@ def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1,
                                     l1_coeff=22e-4, dict_mult=16, batch_size=512, beta2=0.99,
                                     nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.5,
-                                    lr=3e-4, cosine_l1={"period": 6263, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    lr=3e-4, cosine_l1={"period": 62063, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
@@ -191,7 +191,7 @@ def main():
     # print(buffer.device)
     # buffer = buffer_dataset.BufferRefresher(cfg, all_tokens, model, device="cuda")
     buffer = z_sae.Buffer(cfg, all_tokens, model=model)
-    train(encoder, cfg, buffer, None, model)
+    train(encoder, cfg, buffer, model)
 
 if __name__ == "__main__":
     main()
