@@ -75,7 +75,7 @@ class BufferDataset(Dataset):
 
 from multiprocessing import Process, Queue, set_start_method
 class BufferRefresher(Process):
-    def __init__(self, cfg, tokens, model, device=None):
+    def __init__(self, cfg, tokens, model, device=None, queue=None):
         super(BufferRefresher, self).__init__()
         device = cfg.device if device is None else device
         self.device = device
@@ -84,12 +84,12 @@ class BufferRefresher(Process):
         self.time_shuffling = 0
         self.all_tokens = tokens
         self.model = model
-        self.queue = Queue(maxsize=50)
+        self.queue = Queue(maxsize=50) if queue is None else queue
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.token_pointer = 0
         self.first = True
         set_start_method('spawn', force=True)
-
+        self.refresh()
 
     def run(self):
         self.refresh()
@@ -216,3 +216,18 @@ def get_dataloader(cfg, tokens, model, device=None):
     sampler = BufferSampler(dataset)
     dataloader = DataLoader(dataset, batch_sampler=sampler, num_workers=50)
     return dataloader, dataset
+
+
+def get_multi_queued_buffers(n, cfg, tokens, model, device):
+    buffers = []
+    token_step = tokens.shape[0] // n
+    queue = Queue(maxsize=150)
+    for i in range(n):
+        if i == n - 1:
+            m = model
+        else:
+            m = model.copy()
+        buffer = BufferRefresher(cfg, tokens[token_step * i : token_step * (i + 1)], model, device=device)
+        buffer.start()
+        buffers.append(buffer)
+    return buffers
