@@ -28,7 +28,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             x_reconstruct = encoder(acts, record_activation_frequency=True)
             loss = encoder.get_loss()
             l2_loss = encoder.l2_loss_cached.mean()
-            l1_loss = encoder.l1_loss_cached
+            l1_loss = encoder.l1_loss_cached.mean()
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
             # scaler.scale(loss).backward()
             loss.backward()
