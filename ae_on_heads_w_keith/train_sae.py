@@ -176,7 +176,7 @@ def main():
     # linspace_l1(encoder, 0.2)
     dataloader, buffer = buffer_dataset.get_dataloader(cfg, all_tokens, model=model, device="cpu")
     # buffer = z_sae.Buffer(cfg, all_tokens, model=model)
-    train(encoder, cfg, buffer, dataloader, model)
+    train_w_loader(encoder, cfg, buffer, dataloader, model)
 
 if __name__ == "__main__":
     main()
