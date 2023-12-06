@@ -66,7 +66,7 @@ class BufferDataset(Dataset):
     def __init__(self, cfg, tokens, model, device = None):
         super().__init__()
         device = cfg.device if device is None else device
-        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False).to(device)
+        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.cfg :AutoEncoderConfig = cfg
         self.token_pointer = 0
         self.device = device
