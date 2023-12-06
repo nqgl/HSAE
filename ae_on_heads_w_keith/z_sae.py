@@ -264,12 +264,18 @@ class AutoEncoder(nn.Module):
         print("Saved as version", version)
 
     @classmethod
-    def load(cls, version):
-        cfg = (json.load(open(SAVE_DIR/(str(version)+"_cfg.json"), "r")))
-        cfg = AutoEncoderConfig(**cfg)
+    def load(cls, version, cfg = None, save_dir = None):
+        save_dir = SAVE_DIR if save_dir is None else Path(save_dir)
+        # get correct name with globbing
+        import glob
+        if cfg is None:
+            cfg_name = glob.glob(str(save_dir/(str(version)+"*_cfg.json")))
+            cfg = json.load(open(cfg_name[0]))
+            cfg = AutoEncoderConfig(**cfg)
+        pt_name = glob.glob(str(save_dir/(str(version)+"*.pt")))
         pprint.pprint(cfg)
         self = cls(cfg=cfg)
-        self.load_state_dict(torch.load(SAVE_DIR/(str(version)+".pt")))
+        self.load_state_dict(torch.load(pt_name[0]))
         return self
 
 
