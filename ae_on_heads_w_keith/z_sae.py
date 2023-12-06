@@ -186,7 +186,8 @@ class AutoEncoder(nn.Module):
         print(x_diff.shape)
         v_orth[0] = F.normalize(x_diff[0], dim=-1)
         for i in range(1, n_reset):
-            v_orth[i] = F.normalize(x_diff[i] - (v_orth[:i] * x_diff[i]).sum(0))
+            v_ = x_diff[i] - (v_orth[:i] * x_diff[i]).sum(0)
+            v_orth[i] = F.normalize(v_)
         print("is it orth?:", (v_orth @ v_orth.T)[30:40, 30:40].abs())
 
 
