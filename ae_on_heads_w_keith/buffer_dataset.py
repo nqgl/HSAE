@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass, asdict
 from . import config_compatible_relu_choice
 from typing import List, Tuple, Dict, Optional, Union, Callable
-from torch.utils.data import Sampler, Dataset
+from torch.utils.data import Sampler, Dataset, DataLoader
 
 
 @dataclass
@@ -63,11 +63,13 @@ class BufferDataset(Dataset):
     This defines a data buffer, to store a bunch of MLP acts that can be used to train the autoencoder.
     It'll automatically run the model to generate more when it gets halfway empty.
     """
-    def __init__(self, cfg, tokens, model):
+    def __init__(self, cfg, tokens, model, device = None):
         super().__init__()
-        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False).to(cfg.device)
+        device = cfg.device if device is None else device
+        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False).to(device)
         self.cfg :AutoEncoderConfig = cfg
         self.token_pointer = 0
+        self.device = device
         self.first = True
         self.all_tokens = tokens
         self.model = model
@@ -85,7 +87,7 @@ class BufferDataset(Dataset):
                 num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
             self.first = False
             for _ in range(0, num_batches, self.cfg.model_batch_size):
-                tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size]
+                tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size].to(self.model.device)
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
                 # z has a head index 
@@ -102,14 +104,14 @@ class BufferDataset(Dataset):
                 # print(acts.shape)
                 # print(self.buffer.shape)
                 # print("b", self.buffer[self.pointer: self.pointer+acts.shape[0]].shape)
-                self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts
+                self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts.to(self.device)
                 self.pointer += acts.shape[0]
                 self.token_pointer += self.cfg.model_batch_size
                 # if self.token_pointer > self.tokens.shape[0] - self.cfg.model_batch_size:
                 #     self.token_pointer = 0
 
         self.pointer = 0
-        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.cfg.device)]
+        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.device)]
         self.time_shuffling += time.time() - t0
 
     @torch.no_grad()
@@ -165,10 +167,10 @@ class BufferSampler(Sampler):
     def __len__(self):
         return len(self.data_source)
 
-dataset = BufferDataset(cfg, tokens, model)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=cfg.batch_size, shuffle=True)
 
 
-dataset = BufferDataset(cfg, tokens, model)
-sampler = BufferSampler(dataset)
-dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=sampler)
+def get_dataloader(cfg, tokens, model, device=None):
+    dataset = BufferDataset(cfg, tokens, model, device=None)
+    sampler = BufferSampler(dataset)
+    dataloader = DataLoader(dataset, batch_sampler=sampler)
+    return dataloader, dataset
