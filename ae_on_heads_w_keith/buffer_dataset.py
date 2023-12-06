@@ -92,13 +92,13 @@ class BufferRefresher(Process):
 
     def run(self):
         self.refresh()
-        print("starting")
+        # print("starting")
         while True:
-            print("putting")
+            # print("putting")
             self.queue.put(self._next())
-            print("put")
+            # print("put")
             while self.queue.qsize() > 50:
-                time.sleep(0.1)
+                time.sleep(0.01)
             # If the buffer is running low, refresh it
             # if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
             #     self.refresh()
