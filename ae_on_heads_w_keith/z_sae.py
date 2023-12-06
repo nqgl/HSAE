@@ -229,6 +229,9 @@ class AutoEncoder(nn.Module):
         if self.to_be_reset.shape[0] == 0:
             self.to_be_reset = None
         new_directions = new_directions / new_directions.norm(dim=-1, keepdim=True)
+        print(f"to_reset shape", to_reset.shape)
+        print(f"new_directions shape", new_directions.shape)
+        print(f"self.W_enc shape", self.W_enc.shape)
         self.W_enc.data[to_reset] = new_directions
         self.W_dec.data[:, to_reset] = new_directions.T
         self.b_enc.data[to_reset] = 0
