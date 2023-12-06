@@ -95,6 +95,7 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
         for i in tqdm.trange(num_batches):
             if gpuq.queue.empty():
                 print("Waiting for gpuq")
+                # time.sleep(0.01)
             acts = gpuq.next()
             # i = i % buffer.all_tokens.shape[0]
             # acts = buffer.next()
@@ -169,8 +170,8 @@ def linspace_l1(ae, l1_radius):
     
 def main():
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1,
-                                    l1_coeff=22e-4, dict_mult=16, batch_size=512, beta2=0.99,
-                                    nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=2000, buffer_refresh_ratio=0.5,
+                                    l1_coeff=22e-4, dict_mult=16, batch_size=256, beta2=0.99,
+                                    nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.5,
                                     lr=3e-4, cosine_l1={"period": 6263, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,

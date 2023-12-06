@@ -109,11 +109,9 @@ class BufferRefresher(Process):
 
             # print("put")
             while self.queue.qsize() > 400:
-                if self.pointer > self.cfg.buffer_size * self.cfg.buffer_refresh_ratio // 2:
+                if self.pointer > self.cfg.buffer_size * self.cfg.buffer_refresh_ratio / 1.5:
                     print("preempt")
                     self.refresh()
-                else:
-                    time.sleep(0.01)
             # If the buffer is running low, refresh it
             # if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
             #     self.refresh()
@@ -211,19 +209,18 @@ class ToGpuQueue(Process):
         super(ToGpuQueue, self).__init__()
         self.srcq = queue
         self.device = device
-        self.queue = Queue(maxsize=10)
+        self.queue = Queue(maxsize=20)
 
     @torch.no_grad()
     def run(self):
         while True:
-            x = self.srcq.get()
-            self.queue.put(x.to(self.device))
+            self.queue.put(self.srcq.get().to(self.device))
     @torch.no_grad()
     def next(self):
         if self.queue.empty():
             return self.srcq.get().to(self.device)
         else:
-            # print("gpuq hit")
+            print("gpuq hit")
             return self.queue.get()
 
 class BufferSampler(Sampler):
