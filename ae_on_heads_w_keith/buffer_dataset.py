@@ -96,7 +96,7 @@ class BufferRefresher(Process):
         # print("starting")
         while True:
             # print("putting")
-            if self.queue.qsize() < 50:
+            if self.queue.qsize() < 5:
                 self.queue.put(self._next())
             else:
                 self.queue.put(self._next().cpu())
@@ -200,6 +200,17 @@ class BufferRefresher(Process):
     #         # idx = idx.tolist()
     #     return self.buffer[idx]
     
+class ToGpuQueue(Process):
+    def __init__(self, queue, device):
+        super(ToGpuQueue, self).__init__()
+        self.srcq = queue
+        self.device = device
+
+    def run(self):
+        while True:
+            x = self.queue.get()
+            self.queue.put(x.to(self.device))
+
 class BufferSampler(Sampler):
     def __init__(self, data_source):
         self.data_source = data_source
