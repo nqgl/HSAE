@@ -91,11 +91,10 @@ class BufferDataset(Dataset):
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
                 # z has a head index 
-                cache = cache.to(self.device)
                 if self.cfg.flatten_heads:
-                    acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
+                    acts = einops.rearrange(cache[self.cfg.act_name].to(self.device), "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
                 else:
-                    acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos d_act -> (batch seq_pos) d_act")
+                    acts = einops.rearrange(cache[self.cfg.act_name].to(self.device), "batch seq_pos d_act -> (batch seq_pos) d_act")
                 assert acts.shape[-1] == self.cfg.act_size
                 # it is ... n_head d_head and we want to flatten it into ... n_head * d_head
                 # ... == batch seq_pos
