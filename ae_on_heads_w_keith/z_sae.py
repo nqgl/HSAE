@@ -175,7 +175,7 @@ class AutoEncoder(nn.Module):
     @torch.no_grad()
     def neurons_to_reset(self, to_be_reset :torch.Tensor):
         if to_be_reset.sum() > 0:
-            self.to_be_reset = torch.argwhere(to_be_reset).squeeze(0)
+            self.to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
         else:
             self.to_be_reset = None
     
