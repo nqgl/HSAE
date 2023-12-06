@@ -26,8 +26,6 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
-            if i % 100 == 99 and encoder.neurons_reset is not None:
-                encoder.re_init_neurons(x.float() - x_reconstruct.float())
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
@@ -41,6 +39,9 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             # scaler.update()
             encoder_optim.step()
             encoder_optim.zero_grad()
+            if i % 400 == 99 and encoder.to_be_reset is not None:
+                encoder.re_init_neurons(x.float() - x_reconstruct.float())
+                encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
@@ -71,7 +72,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 to_be_reset = (freqs<10**(-6.5))
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
-                    re_init(model, encoder, buffer, to_be_reset)
+                    encoder.neurons_to_reset(to_be_reset)
+                    # re_init(model, encoder, buffer, to_be_reset)
                 wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t1})
                 encoder.reset_activation_frequencies()
     finally:
