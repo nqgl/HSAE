@@ -81,6 +81,11 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
     buffer.start()
     gpuq = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"))
     gpuq.start()
+    gpuq2 = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"), gpuq.queue)
+    gpuq2.start()
+    gpuq3 = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"), gpuq.queue)
+    gpuq3.start()
+
     try:
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
@@ -169,7 +174,7 @@ def linspace_l1(ae, l1_radius):
     # for l1 to get similar gradients, 
     
 def main():
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1,
+    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=256, layer=1,
                                     l1_coeff=22e-4, dict_mult=16, batch_size=512, beta2=0.99,
                                     nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=8000, buffer_refresh_ratio=0.5,
                                     lr=3e-4, cosine_l1={"period": 6263, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1

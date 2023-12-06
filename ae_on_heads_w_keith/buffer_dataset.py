@@ -205,11 +205,11 @@ class BufferRefresher(Process):
     #     return self.buffer[idx]
     
 class ToGpuQueue(Process):
-    def __init__(self, queue, device):
+    def __init__(self, queue, device, gpuq = None):
         super(ToGpuQueue, self).__init__()
         self.srcq = queue
         self.device = device
-        self.queue = Queue(maxsize=20)
+        self.queue = Queue(maxsize=20) if gpuq is None else gpuq
 
     @torch.no_grad()
     def run(self):
