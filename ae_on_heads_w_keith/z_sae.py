@@ -183,7 +183,7 @@ class AutoEncoder(nn.Module):
     def re_init_neurons(self, x_diff):
         n_reset = x_diff.shape[0]
         v_orth = torch.zeros_like(x_diff)
-        print(x_diff.shape())
+        print(x_diff.shape)
         v_orth[0] = F.normalize(x_diff[0], dim=-1)
         for i in range(1, n_reset):
             v_orth[i] = F.normalize(x_diff[i] - (v_orth[:i] * x_diff[i]).sum(0))
