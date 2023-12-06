@@ -81,10 +81,10 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
     buffer.start()
     gpuq = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"))
     gpuq.start()
-    gpuq2 = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"), gpuq.queue)
-    gpuq2.start()
-    gpuq3 = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"), gpuq.queue)
-    gpuq3.start()
+    # gpuq2 = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"), gpuq.queue)
+    # gpuq2.start()
+    # gpuq3 = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"), gpuq.queue)
+    # gpuq3.start()
 
     try:
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
