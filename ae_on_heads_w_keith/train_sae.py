@@ -40,8 +40,14 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             encoder_optim.step()
             encoder_optim.zero_grad()
             if i % 400 == 99 and encoder.to_be_reset is not None:
+                waiting = encoder.to_be_reset.shape[0]
                 wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.shape[0]})
                 encoder.re_init_neurons(acts.float() - x_reconstruct.float())
+                if encoder.to_be_reset is not None:
+                    num_reset = waiting - encoder.to_be_reset.shape[0]
+                else:
+                    num_reset = waiting
+                wandb.log({"neurons_reset": num_reset})
                 encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
@@ -104,7 +110,7 @@ def main():
     #                             lr=3e-4, cosine_l1={"period": 62063, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1,
-                                    l1_coeff=45e-4, dict_mult=8, batch_size=512, beta2=0.99,
+                                    l1_coeff=28e-4, dict_mult=8, batch_size=512, beta2=0.99,
                                     nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=400, buffer_refresh_ratio=0.5,
                                     lr=3e-4, cosine_l1={"period": 62063, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
