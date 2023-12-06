@@ -180,6 +180,10 @@ class AutoEncoder(nn.Module):
             self.to_be_reset = None
     
     @torch.no_grad()
+    def re_init_neurons(self, x_diff):
+        self.re_init_neurons_gram_shmidt_precise(x_diff)
+
+    @torch.no_grad()
     def re_init_neurons_gram_shmidt_precise(self, x_diff):
         n_reset = x_diff.shape[0]
         v_orth = torch.zeros_like(x_diff)
