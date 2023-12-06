@@ -90,7 +90,8 @@ class BufferRefresher(Process):
         self.pointer = 0
         self.first = True
         self.refresh()
-
+    
+    @torch.no_grad()
     def run(self):
         self.refresh()
         # print("starting")
@@ -207,11 +208,12 @@ class ToGpuQueue(Process):
         self.device = device
         self.queue = Queue(maxsize=10)
 
+    @torch.no_grad()
     def run(self):
         while True:
             x = self.srcq.get()
             self.queue.put(x.to(self.device))
-
+    @torch.no_grad()
     def next(self):
         if self.queue.empty():
             return self.srcq.get().to(self.device)
