@@ -175,7 +175,7 @@ class AutoEncoder(nn.Module):
     @torch.no_grad()
     def neurons_to_reset(self, to_be_reset :torch.Tensor):
         if to_be_reset.sum() > 0:
-            self.to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
+            self.to_be_reset = torch.argwhere(to_be_reset).squeeze(0)
         else:
             self.to_be_reset = None
     
@@ -232,8 +232,8 @@ class AutoEncoder(nn.Module):
         print(f"to_reset shape", to_reset.shape)
         print(f"new_directions shape", new_directions.shape)
         print(f"self.W_enc shape", self.W_enc.shape)
-        self.W_enc.data[to_reset] = new_directions
-        self.W_dec.data[:, to_reset] = new_directions.T
+        self.W_enc.data[:, to_reset] = new_directions.T
+        self.W_dec.data[to_reset, :] = new_directions
         self.b_enc.data[to_reset] = 0
 
 
