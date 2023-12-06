@@ -98,7 +98,6 @@ class BufferRefresher(Process):
             self.queue.put(self._next())
             # print("put")
             while self.queue.qsize() > 50:
-                print("qsleep")
                 time.sleep(0.01)
             # If the buffer is running low, refresh it
             # if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
@@ -130,7 +129,6 @@ class BufferRefresher(Process):
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
                 # z has a head index 
-                print("1")
                 if self.cfg.flatten_heads:
                     acts = einops.rearrange(cache[self.cfg.act_name].to(self.device), "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
                 else:
