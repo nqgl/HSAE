@@ -86,6 +86,7 @@ class BufferRefresher(Process):
         self.model = model
         self.queue = Queue(maxsize=50) if queue is None else queue
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
+        self.token_pointer = 0
         self.pointer = 0
         self.first = True
         self.refresh()
@@ -102,16 +103,16 @@ class BufferRefresher(Process):
                     self.refresh()
                 time.sleep(0.01)
             # If the buffer is running low, refresh it
-            # if self.pointer + self.cfg.batch_size > self.cfg.buffer_size:
+            # if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
             #     self.refresh()
 
             # Push the next batch of data into the queue
-            # batch = self.buffer[self.pointer:self.pointer + self.cfg.batch_size]
+            # batch = self.buffer[self.token_pointer:self.token_pointer + self.cfg.batch_size]
 
 
 
             # Move the pointer
-            # self.pointer += self.cfg.batch_size
+            # self.token_pointer += self.cfg.batch_size
 
 
 
@@ -128,7 +129,7 @@ class BufferRefresher(Process):
             self.first = False
             print("for")
             for _ in range(0, num_batches, self.cfg.model_batch_size):
-                tokens = self.all_tokens[self.pointer:self.pointer+self.cfg.model_batch_size]
+                tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size]
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
                 # z has a head index 
@@ -139,7 +140,7 @@ class BufferRefresher(Process):
                 assert acts.shape[-1] == self.cfg.act_size
                 # it is ... n_head d_head and we want to flatten it into ... n_head * d_head
                 # ... == batch seq_pos
-                # print(tokens.shape, acts.shape, self.pointer, self.pointer)
+                # print(tokens.shape, acts.shape, self.pointer, self.token_pointer)
                 # print(cache[self.cfg.act_name].shape)
                 # print("acts:", acts.shape)
                 # print(acts.shape)
@@ -147,9 +148,9 @@ class BufferRefresher(Process):
                 # print("b", self.buffer[self.pointer: self.pointer+acts.shape[0]].shape)
                 self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts
                 self.pointer += acts.shape[0]
-                self.pointer += self.cfg.model_batch_size
-                # if self.pointer > self.tokens.shape[0] - self.cfg.model_batch_size:
-                #     self.pointer = 0
+                self.token_pointer += self.cfg.model_batch_size
+                # if self.token_pointer > self.tokens.shape[0] - self.cfg.model_batch_size:
+                #     self.token_pointer = 0
 
         self.pointer = 0
         print("Shuffling")
