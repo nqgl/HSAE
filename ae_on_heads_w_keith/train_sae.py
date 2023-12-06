@@ -89,7 +89,9 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
         encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
+        i = 0
         for acts in dataloader:
+            i += 1
             # i = i % buffer.all_tokens.shape[0]
             # acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
