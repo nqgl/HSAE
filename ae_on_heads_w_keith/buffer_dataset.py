@@ -88,8 +88,8 @@ class BufferRefresher(Process):
         self.queue = Queue(maxsize=50)
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.token_pointer = 0
-        self.refresh()
         self.first = True
+        self.refresh()
 
 
     def run(self):
