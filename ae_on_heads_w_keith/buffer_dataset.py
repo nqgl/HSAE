@@ -98,6 +98,7 @@ class BufferRefresher(Process):
             self.queue.put(self._next())
             # print("put")
             while self.queue.qsize() > 50:
+                print("qsleep")
                 time.sleep(0.01)
             # If the buffer is running low, refresh it
             # if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
