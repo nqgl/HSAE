@@ -144,6 +144,7 @@ class BufferDataset(Dataset):
     def __getitem__(self, idx):
         # if torch.is_tensor(idx):
             # idx = idx.tolist()
+        
         return self.buffer[idx]
     
 class BufferSampler(Sampler):
@@ -155,7 +156,7 @@ class BufferSampler(Sampler):
         while True:
             # If the buffer is running low, refresh it
 
-            if self.data_source.pointer > int(self.data_source.buffer.shape[0] * self.data_source.cfg.buffer_refresh_ratio) - self.data_source.cfg.batch_size:
+            if self.data_source.pointer >= int(self.data_source.buffer.shape[0] * self.data_source.cfg.buffer_refresh_ratio) - self.data_source.cfg.batch_size:
                 self.data_source.refresh()
 
             # Yield the next batch of indices from the buffer
