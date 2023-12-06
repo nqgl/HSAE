@@ -138,7 +138,8 @@ class BufferDataset(Dataset):
             self.refresh()
 
     def __len__(self):
-        return len(self.all_tokens) // self.cfg.batch_size    
+        return len(self.data_source)
+
 
 
     def __getitem__(self, idx):
