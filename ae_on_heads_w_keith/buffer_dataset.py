@@ -83,7 +83,7 @@ class BufferRefresher(Process):
         self.device = device
         self.model = model
         self.cfg = cfg
-        self.tokens = tokens
+        self.all_tokens = tokens
         self.model = model
         self.queue = Queue(maxsize=50)
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
@@ -97,15 +97,15 @@ class BufferRefresher(Process):
             while self.queue.qsize() > 50:
                 time.sleep(0.1)
             # If the buffer is running low, refresh it
-            if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
-                self.refresh()
+            # if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
+            #     self.refresh()
 
             # Push the next batch of data into the queue
-            batch = self.buffer[self.token_pointer:self.token_pointer + self.cfg.batch_size]
-            self.queue.put(batch)
+            # batch = self.buffer[self.token_pointer:self.token_pointer + self.cfg.batch_size]
+            self.queue.put(self._next())
 
             # Move the pointer
-            self.token_pointer += self.cfg.batch_size
+            # self.token_pointer += self.cfg.batch_size
 
 
 
@@ -148,7 +148,7 @@ class BufferRefresher(Process):
         self.time_shuffling += time.time() - t0
 
     @torch.no_grad()
-    def next(self):
+    def _next(self):
         out = self.buffer[self.pointer:self.pointer+self.cfg.batch_size]
         self.pointer += self.cfg.batch_size
         if self.pointer > int(self.buffer.shape[0] * self.cfg.buffer_refresh_ratio) - self.cfg.batch_size:
@@ -156,6 +156,10 @@ class BufferRefresher(Process):
             self.refresh()
 
         return out
+
+    @torch.no_grad()
+    def next(self):
+        return self.queue.get()
 
 
     @torch.no_grad()
