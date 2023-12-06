@@ -172,5 +172,5 @@ class BufferSampler(Sampler):
 def get_dataloader(cfg, tokens, model, device=None):
     dataset = BufferDataset(cfg, tokens, model, device=device)
     sampler = BufferSampler(dataset)
-    dataloader = DataLoader(dataset, batch_sampler=sampler, num_workers=2)
+    dataloader = DataLoader(dataset, batch_sampler=sampler, num_workers=10)
     return dataloader, dataset
