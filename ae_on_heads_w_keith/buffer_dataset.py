@@ -220,7 +220,7 @@ class ToGpuQueue(Process):
         if self.queue.empty():
             return self.srcq.get().to(self.device)
         else:
-            print("gpuq hit")
+            # print("gpuq hit")
             return self.queue.get()
 
 class BufferSampler(Sampler):
