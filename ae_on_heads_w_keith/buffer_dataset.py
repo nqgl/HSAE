@@ -138,14 +138,13 @@ class BufferDataset(Dataset):
             self.refresh()
 
     def __len__(self):
-        return len(self.data_source)
-
+        return len(self.all_tokens) // self.cfg.batch_size    
 
 
     def __getitem__(self, idx):
         # if torch.is_tensor(idx):
             # idx = idx.tolist()
-        return self.next()
+        return self.buffer[idx]
     
 class BufferSampler(Sampler):
     def __init__(self, data_source):
@@ -156,13 +155,13 @@ class BufferSampler(Sampler):
         while True:
             # If the buffer is running low, refresh it
 
-            # if self.data_source.pointer >= int(self.data_source.buffer.shape[0] * self.data_source.cfg.buffer_refresh_ratio) - self.data_source.cfg.batch_size:
-            #     self.data_source.refresh()
+            if self.data_source.pointer >= int(self.data_source.buffer.shape[0] * self.data_source.cfg.buffer_refresh_ratio) - self.data_source.cfg.batch_size:
+                self.data_source.refresh()
 
-            # # Yield the next batch of indices from the buffer
-            # self.data_source.token_pointer += self.data_source.cfg.batch_size
-            # indices = torch.arange(self.data_source.token_pointer - self.data_source.cfg.batch_size, self.data_source.token_pointer)
-            yield torch.tensor((1,))
+            # Yield the next batch of indices from the buffer
+            self.data_source.token_pointer += self.data_source.cfg.batch_size
+            indices = torch.arange(self.data_source.token_pointer - self.data_source.cfg.batch_size, self.data_source.token_pointer)
+            yield indices
 
             # Move the pointer
 
