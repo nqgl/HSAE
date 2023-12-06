@@ -112,7 +112,7 @@ class BufferDataset(Dataset):
                 #     self.token_pointer = 0
 
         self.pointer = 0
-        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.device)]
+        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0], device=self.cfg.device)]
         self.time_shuffling += time.time() - t0
 
     @torch.no_grad()
@@ -174,5 +174,5 @@ class BufferSampler(Sampler):
 def get_dataloader(cfg, tokens, model, device=None):
     dataset = BufferDataset(cfg, tokens, model, device=None)
     sampler = BufferSampler(dataset)
-    dataloader = DataLoader(dataset, batch_sampler=sampler)
+    dataloader = DataLoader(dataset, batch_sampler=sampler, num_workers=10)
     return dataloader, dataset
