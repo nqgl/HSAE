@@ -96,6 +96,7 @@ class BufferRefresher(Process):
         while True:
             print("putting")
             self.queue.put(self._next())
+            print("put")
             while self.queue.qsize() > 50:
                 time.sleep(0.1)
             # If the buffer is running low, refresh it
