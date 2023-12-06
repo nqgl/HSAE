@@ -98,8 +98,8 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
         act_freq_scores_list = []
         # data = iter(dataloader)
         for i in tqdm.trange(num_batches):
-            if gpuq.queue.empty():
-                print("Waiting for gpuq")
+            # if gpuq.queue.empty():
+            #     print("Waiting for gpuq")
                 # time.sleep(0.01)
             acts = gpuq.next()
             # i = i % buffer.all_tokens.shape[0]
