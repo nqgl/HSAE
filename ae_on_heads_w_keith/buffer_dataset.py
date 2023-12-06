@@ -89,10 +89,13 @@ class BufferRefresher(Process):
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.token_pointer = 0
         self.first = True
-        self.refresh()
+        self.started = False
 
 
     def run(self):
+        self.started = True
+        self.refresh()
+        print("starting")
         while True:
             while self.queue.qsize() > 50:
                 time.sleep(0.1)
@@ -102,7 +105,10 @@ class BufferRefresher(Process):
 
             # Push the next batch of data into the queue
             # batch = self.buffer[self.token_pointer:self.token_pointer + self.cfg.batch_size]
+            print("putting")
             self.queue.put(self._next())
+
+
 
             # Move the pointer
             # self.token_pointer += self.cfg.batch_size
@@ -159,6 +165,8 @@ class BufferRefresher(Process):
 
     @torch.no_grad()
     def next(self):
+        if not self.started:
+            self.start()
         return self.queue.get()
 
 
