@@ -6,7 +6,6 @@ from .calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import time
 from . import buffer_dataset
-buffer_dataset.set_start_method("spawn")
 
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
@@ -92,6 +91,9 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
         act_freq_scores_list = []
         # data = iter(dataloader)
         for i in tqdm.trange(num_batches):
+            while buffer.queue.empty():
+                print("Waiting for buffer")
+                time.sleep(1)
             acts = buffer.next().to(cfg.device)
             # i = i % buffer.all_tokens.shape[0]
             # acts = buffer.next()
