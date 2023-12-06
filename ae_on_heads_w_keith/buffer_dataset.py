@@ -67,13 +67,10 @@ class BufferDataset(Dataset):
     def __init__(self, cfg, tokens, model, device = None):
         super().__init__()
         device = cfg.device if device is None else device
-        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.cfg :AutoEncoderConfig = cfg
         self.token_pointer = 0
         self.device = device
-        self.first = True
         self.all_tokens = tokens
-        self.model = model
         self.time_shuffling = 0
         self.refresh()
 
@@ -83,13 +80,16 @@ from multiprocessing import Process, Queue
 class BufferRefresher(Process):
     def __init__(self, cfg, tokens, model):
         super(BufferRefresher, self).__init__()
+        self.model = model
         self.cfg = cfg
         self.tokens = tokens
         self.model = model
         self.queue = Queue(maxsize=50)
-        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False).to(cfg.device)
+        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.token_pointer = 0
         self.refresh()
+        self.first = True
+
 
     def run(self):
         while True:
