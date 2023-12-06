@@ -73,8 +73,7 @@ class BufferDataset(Dataset):
         self.refresh()
 
 
-from multiprocessing import Process, Queue
-
+from multiprocessing import Process, Queue, set_start_method
 class BufferRefresher(Process):
     def __init__(self, cfg, tokens, model, device=None):
         super(BufferRefresher, self).__init__()
@@ -89,6 +88,8 @@ class BufferRefresher(Process):
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.token_pointer = 0
         self.first = True
+        set_start_method('spawn', force=True)
+
 
     def run(self):
         self.refresh()
@@ -123,7 +124,7 @@ class BufferRefresher(Process):
                 num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
             self.first = False
             for _ in range(0, num_batches, self.cfg.model_batch_size):
-                tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size].to(self.cfg.device)
+                tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size]
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
                 # z has a head index 
