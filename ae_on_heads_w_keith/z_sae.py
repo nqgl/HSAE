@@ -190,7 +190,7 @@ class AutoEncoder(nn.Module):
             v_bar = v_bar / v_bar.norm(dim=-1)
 
             v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
-            print(v_.shape)
+            # print(v_.shape)
             v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
         print("is it orth?:", (v_orth.transpose(-1, -2) @ v_orth)[30:40, 30:40].abs())
         
