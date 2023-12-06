@@ -178,6 +178,7 @@ def main():
     encoder = z_sae.AutoEncoder(cfg)
     # linspace_l1(encoder, 0.2)
     dataloader, buffer = buffer_dataset.get_dataloader(cfg, all_tokens, model=model, device=torch.device("cpu"))
+    # print(buffer.device)
     # buffer = z_sae.Buffer(cfg, all_tokens, model=model)
     train_w_loader(encoder, cfg, buffer, dataloader, model)
 
