@@ -87,10 +87,11 @@ class BufferDataset(Dataset):
                 num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
             self.first = False
             for _ in range(0, num_batches, self.cfg.model_batch_size):
-                tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size].to(self.model.device)
+                tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size].to(self.cfg.device)
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
                 # z has a head index 
+                cache = cache.to(self.device)
                 if self.cfg.flatten_heads:
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
                 else:
@@ -104,7 +105,7 @@ class BufferDataset(Dataset):
                 # print(acts.shape)
                 # print(self.buffer.shape)
                 # print("b", self.buffer[self.pointer: self.pointer+acts.shape[0]].shape)
-                self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts.to(self.device)
+                self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts
                 self.pointer += acts.shape[0]
                 self.token_pointer += self.cfg.model_batch_size
                 # if self.token_pointer > self.tokens.shape[0] - self.cfg.model_batch_size:
