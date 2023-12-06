@@ -84,7 +84,7 @@ class BufferRefresher(Process):
         self.time_shuffling = 0
         self.all_tokens = tokens
         self.model = model
-        self.queue = Queue(maxsize=50) if queue is None else queue
+        self.queue = Queue(maxsize=600) if queue is None else queue
         self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False, device=device)
         self.token_pointer = 0
         self.pointer = 0
@@ -98,7 +98,7 @@ class BufferRefresher(Process):
             # print("putting")
             self.queue.put(self._next())
             # print("put")
-            while self.queue.qsize() > 50:
+            while self.queue.qsize() > 400:
                 if self.pointer != 0:
                     self.refresh()
                 time.sleep(0.01)
@@ -120,6 +120,7 @@ class BufferRefresher(Process):
     def refresh(self):
         t0 = time.time()
         num_batches = ((self.pointer // self.cfg.batch_size))
+        num_batches = int(self.pointer / self.)
         self.pointer = 0
         with torch.autocast("cuda", torch.float16):
             if self.first:
