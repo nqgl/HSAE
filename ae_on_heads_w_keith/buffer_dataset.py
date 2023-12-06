@@ -23,6 +23,7 @@ from dataclasses import dataclass, asdict
 from . import config_compatible_relu_choice
 from typing import List, Tuple, Dict, Optional, Union, Callable
 from torch.utils.data import Sampler, Dataset, DataLoader
+from multiprocessing import Lock
 
 
 @dataclass
@@ -75,6 +76,37 @@ class BufferDataset(Dataset):
         self.model = model
         self.time_shuffling = 0
         self.refresh()
+
+
+from multiprocessing import Process, Queue
+
+class BufferRefresher(Process):
+    def __init__(self, cfg, tokens, model):
+        super(BufferRefresher, self).__init__()
+        self.cfg = cfg
+        self.tokens = tokens
+        self.model = model
+        self.queue = Queue(maxsize=50)
+        self.buffer = torch.zeros((cfg.buffer_size, cfg.act_size), dtype=torch.float16, requires_grad=False).to(cfg.device)
+        self.token_pointer = 0
+        self.refresh()
+
+    def run(self):
+        while True:
+            while self.queue.qsize() > 50:
+                time.sleep(0.1)
+            # If the buffer is running low, refresh it
+            if self.token_pointer + self.cfg.batch_size > self.cfg.buffer_size:
+                self.refresh()
+
+            # Push the next batch of data into the queue
+            batch = self.buffer[self.token_pointer:self.token_pointer + self.cfg.batch_size]
+            self.queue.put(batch)
+
+            # Move the pointer
+            self.token_pointer += self.cfg.batch_size
+
+
 
     @torch.no_grad()
     def refresh(self):
@@ -136,31 +168,32 @@ class BufferDataset(Dataset):
             self.pointer += (n + 1) * self.cfg.batch_size
             self.refresh()
 
-    def __len__(self):
-        return len(self.data_source)
+    # def __len__(self):
+    #     return len(self.data_source)
 
 
-    def __getitem__(self, idx):
-        # if torch.is_tensor(idx):
-            # idx = idx.tolist()
-        return self.buffer[idx]
+    # def __getitem__(self, idx):
+    #     # if torch.is_tensor(idx):
+    #         # idx = idx.tolist()
+    #     return self.buffer[idx]
     
 class BufferSampler(Sampler):
     def __init__(self, data_source):
         self.data_source = data_source
         # do I need a lock? let's try and find out
+        self.lock = Lock()
 
     def __iter__(self):
         while True:
-            # If the buffer is running low, refresh it
+            with self.lock:
+                # If the buffer is running low, refresh it
+                if self.data_source.pointer >= int(self.data_source.buffer.shape[0] * self.data_source.cfg.buffer_refresh_ratio) - self.data_source.cfg.batch_size:
+                    self.data_source.refresh()
 
-            if self.data_source.pointer >= int(self.data_source.buffer.shape[0] * self.data_source.cfg.buffer_refresh_ratio) - self.data_source.cfg.batch_size:
-                self.data_source.refresh()
-
-            # Yield the next batch of indices from the buffer
-            self.data_source.token_pointer += self.data_source.cfg.batch_size
-            indices = torch.arange(self.data_source.token_pointer - self.data_source.cfg.batch_size, self.data_source.token_pointer)
-            yield indices
+                # Yield the next batch of indices from the buffer
+                self.data_source.token_pointer += self.data_source.cfg.batch_size
+                indices = torch.arange(self.data_source.token_pointer - self.data_source.cfg.batch_size, self.data_source.token_pointer)
+                yield indices
 
             # Move the pointer
 
@@ -172,5 +205,5 @@ class BufferSampler(Sampler):
 def get_dataloader(cfg, tokens, model, device=None):
     dataset = BufferDataset(cfg, tokens, model, device=device)
     sampler = BufferSampler(dataset)
-    dataloader = DataLoader(dataset, batch_sampler=sampler, num_workers=10)
+    dataloader = DataLoader(dataset, batch_sampler=sampler, num_workers=50)
     return dataloader, dataset

@@ -78,7 +78,7 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
     # buffer.freshen_buffer(fresh_factor=0.5)
-
+    buffer.run()
     try:
         run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
@@ -89,9 +89,9 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
         encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
-        data = iter(dataloader)
+        # data = iter(dataloader)
         for i in tqdm.trange(num_batches):
-            acts = next(data).to(cfg.device)
+            acts = buffer.queue.get()
             # i = i % buffer.all_tokens.shape[0]
             # acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)
@@ -177,10 +177,11 @@ def main():
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
     # linspace_l1(encoder, 0.2)
-    dataloader, buffer = buffer_dataset.get_dataloader(cfg, all_tokens, model=model, device=torch.device("cpu"))
+    # dataloader, buffer = buffer_dataset.get_dataloader(cfg, all_tokens, model=model, device=torch.device("cpu"))
     # print(buffer.device)
+    buffer = buffer_dataset.BufferRefresher(cfg, all_tokens, model)
     # buffer = z_sae.Buffer(cfg, all_tokens, model=model)
-    train_w_loader(encoder, cfg, buffer, dataloader, model)
+    train_w_loader(encoder, cfg, buffer, None, model)
 
 if __name__ == "__main__":
     main()
