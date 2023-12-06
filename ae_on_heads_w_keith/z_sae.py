@@ -152,7 +152,7 @@ class AutoEncoder(nn.Module):
         x_reconstruct = acts @ self.W_dec + self.b_dec
         # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
         x_diff = x_reconstruct.float() - x.float()
-        self.re_init_neurons(x_diff)
+        # self.re_init_neurons(x_diff)
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
         self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
         if cache_l0:
@@ -180,7 +180,7 @@ class AutoEncoder(nn.Module):
             self.to_be_reset = None
     
     @torch.no_grad()
-    def re_init_neurons(self, x_diff):
+    def re_init_neurons_gram_shmidt(self, x_diff):
         n_reset = x_diff.shape[0]
         v_orth = torch.zeros_like(x_diff)
         # print(x_diff.shape)
@@ -194,6 +194,19 @@ class AutoEncoder(nn.Module):
             v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
         print("is it orth?:", (v_orth @ v_orth.transpose(-1, -2))[0:10, 0:10].abs())
         
+    def re_init_neurons_trailing_mild_orth(self, x_diff, t = 3):
+        n_reset = x_diff.shape[0]
+        v_orth = torch.zeros_like(x_diff)
+        # print(x_diff.shape)
+        v_orth[0] = F.normalize(x_diff[0], dim=-1)
+        for i in range(1, n_reset):
+            v_bar = v_orth[i - 3:i].sum(0)
+            v_bar = v_bar / v_bar.norm(dim=-1)
+
+            v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
+            # print(v_.shape)
+            v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
+        print("is it orth?:", (v_orth @ v_orth.transpose(-1, -2))[0:10, 0:10].abs())
 
 
 
