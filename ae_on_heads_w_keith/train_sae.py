@@ -40,7 +40,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             encoder_optim.step()
             encoder_optim.zero_grad()
             if i % 400 == 99 and encoder.to_be_reset is not None:
-                encoder.re_init_neurons(x.float() - x_reconstruct.float())
+                encoder.re_init_neurons(acts.float() - x_reconstruct.float())
                 encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
                 wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.sum()})
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
@@ -65,7 +65,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 10000 == 9501 and i > 1500:
+            if (i+1) % 5000 == 4501 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -98,8 +98,13 @@ def linspace_l1(ae, l1_radius):
     # for l1 to get similar gradients, 
     
 def main():
+    # ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=768, layer=1, model_name="gpt2-small",
+    #                             l1_coeff=28e-4, dict_mult=8, batch_size=512, beta2=0.99,
+    #                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=400, buffer_refresh_ratio=0.5,
+    #                             lr=3e-4, cosine_l1={"period": 62063, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
+
     ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1,
-                                    l1_coeff=64e-4, dict_mult=8, batch_size=512, beta2=0.99,
+                                    l1_coeff=28e-4, dict_mult=8, batch_size=512, beta2=0.99,
                                     nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=400, buffer_refresh_ratio=0.5,
                                     lr=3e-4, cosine_l1={"period": 62063, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
