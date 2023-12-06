@@ -89,6 +89,7 @@ class BufferRefresher(Process):
         self.token_pointer = 0
         self.pointer = 0
         self.first = True
+        self.gpu_queue = None
         self.refresh()
     
     @torch.no_grad()
@@ -100,7 +101,11 @@ class BufferRefresher(Process):
             # if self.queue.qsize() < 5:
             #     self.queue.put(self._next())
             # else:
-            self.queue.put(self._next().cpu())
+            if self.device != "cpu" and self.gpu_queue is not None:
+                while not self.gpu_queue.full():
+                    self.gpu_queue.put(self._next())
+            else:
+                self.queue.put(self._next().cpu())
 
             # print("put")
             while self.queue.qsize() > 400:
@@ -127,7 +132,7 @@ class BufferRefresher(Process):
     def refresh(self):
         t0 = time.time()
         num_batches = ((self.pointer // self.cfg.batch_size))
-        # num_batches = int(self.pointer / self.buffer.shape[0] * )
+        # num_batches = int(self.pointer / self.buffer.shape[0] * self.cfg.bat)
         self.pointer = 0
         with torch.autocast("cuda", torch.float16):
             if self.first:
