@@ -123,11 +123,13 @@ class BufferRefresher(Process):
             else:
                 num_batches = int(self.cfg.buffer_batches * self.cfg.buffer_refresh_ratio)
             self.first = False
+            print("for")
             for _ in range(0, num_batches, self.cfg.model_batch_size):
                 tokens = self.all_tokens[self.token_pointer:self.token_pointer+self.cfg.model_batch_size]
                 _, cache = self.model.run_with_cache(tokens, stop_at_layer=self.cfg.layer+1)
                 # acts = cache[self.cfg.act_name].reshape(-1, self.cfg.act_size)
                 # z has a head index 
+                print("1")
                 if self.cfg.flatten_heads:
                     acts = einops.rearrange(cache[self.cfg.act_name].to(self.device), "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
                 else:
@@ -148,7 +150,9 @@ class BufferRefresher(Process):
                 #     self.token_pointer = 0
 
         self.pointer = 0
+        print("Shuffling")
         self.buffer = self.buffer[torch.randperm(self.buffer.shape[0], device=self.device)]
+        print("shuffled")
         self.time_shuffling += time.time() - t0
 
     @torch.no_grad()
