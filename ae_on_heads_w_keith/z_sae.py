@@ -183,24 +183,9 @@ class AutoEncoder(nn.Module):
     def re_init_neurons(self, x_diff):
         self.re_init_neurons_gram_shmidt_precise(x_diff)
 
-    @torch.no_grad()
-    def re_init_neurons_gram_shmidt_precise(self, x_diff):
-        n_reset = x_diff.shape[0]
-        v_orth = torch.zeros_like(x_diff)
-        # print(x_diff.shape)
-        # v_orth[0] = F.normalize(x_diff[0], dim=-1)
-        for i in range(n_reset):
-            v_orth[i] = x_diff[i]
-            for j in range(i):
-                v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
-            v_orth[i] = F.normalize(v_orth[i], dim=-1)
-            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
-            # # print(v_.shape)
-            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
-        return v_orth        
     
     @torch.no_grad()
-    def re_init_neurons_gram_shmidt_precise(self, x_diff, t = 5):
+    def re_init_neurons_gram_shmidt_precise(self, x_diff, t = 5000):
         n_reset = min(x_diff.shape[0], x_diff.shape[1])
         v_orth = torch.zeros_like(x_diff)
         # print(x_diff.shape)
