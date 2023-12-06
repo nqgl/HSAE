@@ -79,6 +79,8 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
     t0 = time.time()
     # buffer.freshen_buffer(fresh_factor=0.5)
     buffer.start()
+    gpuq = buffer_dataset.ToGpuQueue(buffer.queue, torch.device("cuda"))
+    gpuq.start()
     try:
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
@@ -91,10 +93,9 @@ def train_w_loader(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buf
         act_freq_scores_list = []
         # data = iter(dataloader)
         for i in tqdm.trange(num_batches):
-            while buffer.queue.empty():
-                print("Waiting for buffer")
-                time.sleep(1)
-            acts = buffer.next().to(cfg.device)
+            if gpuq.queue.empty():
+                print("Waiting for gpuq")
+            acts = gpuq.next()
             # i = i % buffer.all_tokens.shape[0]
             # acts = buffer.next()
             x_reconstruct = encoder(acts, record_activation_frequency=True)

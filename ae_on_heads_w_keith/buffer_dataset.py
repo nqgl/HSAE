@@ -205,11 +205,18 @@ class ToGpuQueue(Process):
         super(ToGpuQueue, self).__init__()
         self.srcq = queue
         self.device = device
+        self.queue = Queue(maxsize=10)
 
     def run(self):
         while True:
             x = self.queue.get()
             self.queue.put(x.to(self.device))
+
+    def next(self):
+        if self.queue.empty():
+            return self.srcq.get().to(self.device)
+        else:
+            return self.queue.get()
 
 class BufferSampler(Sampler):
     def __init__(self, data_source):
