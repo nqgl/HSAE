@@ -41,7 +41,7 @@ class AutoEncoderConfig:
     seq_len :int = 128
     layer :int = 0
     enc_dtype :str = "fp32"
-    model_name :str = "gelu-1l"
+    model_name :str = "gelu-2l"
     site :str = "" # z?
     device :str = "cuda"
     remove_rare_dir :bool = False
@@ -150,8 +150,8 @@ class AutoEncoder(nn.Module):
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
-        self.l1_loss_cached = torch.pow(acts.float().abs() + 1e-5, 0.5).mean(dim=(-2))
-        self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1).mean(0)
+        self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
+        self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean()
         else:
