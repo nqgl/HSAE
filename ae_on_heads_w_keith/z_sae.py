@@ -182,7 +182,7 @@ class AutoEncoder(nn.Module):
         else:
             c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
             l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
-        return self.l2_loss_cached + torch.sum(l1_coeff * self.l1_loss_cached)
+        return torch.sum(self.l2_loss_cached) + torch.sum(l1_coeff * self.l1_loss_cached)
 
 
     
