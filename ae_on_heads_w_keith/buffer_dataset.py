@@ -96,7 +96,11 @@ class BufferRefresher(Process):
         # print("starting")
         while True:
             # print("putting")
-            self.queue.put(self._next())
+            if self.queue.qsize() < 50:
+                self.queue.put(self._next())
+            else:
+                self.queue.put(self._next().cpu())
+
             # print("put")
             while self.queue.qsize() > 400:
                 if self.pointer != 0:
