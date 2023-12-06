@@ -180,33 +180,54 @@ class AutoEncoder(nn.Module):
             self.to_be_reset = None
     
     @torch.no_grad()
-    def re_init_neurons_gram_shmidt(self, x_diff):
+    def re_init_neurons_gram_shmidt_precise(self, x_diff):
         n_reset = x_diff.shape[0]
         v_orth = torch.zeros_like(x_diff)
         # print(x_diff.shape)
-        v_orth[0] = F.normalize(x_diff[0], dim=-1)
-        for i in range(1, n_reset):
-            v_bar = v_orth[:i].sum(0)
-            v_bar = v_bar / v_bar.norm(dim=-1)
-
-            v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
-            # print(v_.shape)
-            v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
-        print("is it orth?:", (v_orth @ v_orth.transpose(-1, -2))[0:10, 0:10].abs())
-        
-    def re_init_neurons_trailing_mild_orth(self, x_diff, t = 3):
-        n_reset = x_diff.shape[0]
+        # v_orth[0] = F.normalize(x_diff[0], dim=-1)
+        for i in range(n_reset):
+            v_orth[i] = x_diff[i]
+            for j in range(i):
+                v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
+            v_orth[i] = F.normalize(v_orth[i], dim=-1)
+            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
+            # # print(v_.shape)
+            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
+        return v_orth        
+    
+    @torch.no_grad()
+    def re_init_neurons_gram_shmidt_precise(self, x_diff, t = 5):
+        n_reset = min(x_diff.shape[0], x_diff.shape[1])
         v_orth = torch.zeros_like(x_diff)
         # print(x_diff.shape)
-        v_orth[0] = F.normalize(x_diff[0], dim=-1)
-        for i in range(1, n_reset):
-            v_bar = v_orth[i - 3:i].sum(0)
-            v_bar = v_bar / v_bar.norm(dim=-1)
+        # v_orth[0] = F.normalize(x_diff[0], dim=-1)
+        n_succesfully_reset = n_reset
+        for i in range(n_reset):
+            v_orth[i] = x_diff[i]
+            for j in range(max(0, i - t), i):
+                v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
+            if v_orth[i].norm() < 1e-6:
+                n_succesfully_reset = i
+                break
+            v_orth[i] = F.normalize(v_orth[i], dim=-1)
+            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
+            # # print(v_.shape)
+            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
+        self.reset_neurons(v_orth[:n_succesfully_reset])
 
-            v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
-            # print(v_.shape)
-            v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
-        print("is it orth?:", (v_orth @ v_orth.transpose(-1, -2))[0:10, 0:10].abs())
+    @torch.no_grad()
+    def reset_neurons(self, new_directions :torch.Tensor):
+        if new_directions.shape[0] > self.to_be_reset.shape[0]:
+            new_directions = new_directions[:self.to_be_reset.shape[0]]
+        num_resets = new_directions.shape[0]
+        to_reset = self.to_be_reset[:num_resets]
+        self.to_be_reset = self.to_be_reset[num_resets:]
+        if self.to_be_reset.shape[0] == 0:
+            self.to_be_reset = None
+        new_directions = new_directions / new_directions.norm(dim=-1, keepdim=True)
+        self.W_enc.data[to_reset] = new_directions
+        self.W_dec.data[:, to_reset] = new_directions.T
+        self.b_enc.data[to_reset] = 0
 
 
 
