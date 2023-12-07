@@ -178,7 +178,9 @@ class AutoEncoder(nn.Module):
     def neurons_to_reset(self, to_be_reset :torch.Tensor):
         if to_be_reset.sum() > 0:
             self.to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
-            self.alive_norm_along_feature_axis = torch.mean(self.W_enc[:, 1 - to_be_reset].norm(dim=0))
+            w_enc_norms = self.W_enc[:, ~ to_be_reset].norm(dim=0)
+            print("w_enc_norms", w_enc_norms.shape)
+            self.alive_norm_along_feature_axis = torch.mean(torch.mean(w_enc_norms))
         else:
             self.to_be_reset = None
     
