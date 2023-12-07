@@ -73,7 +73,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 })
             if i == 13501:
                 encoder.reset_activation_frequencies()    
-            elif (i+1) % 5000 == 13501 and i > 1500:
+            elif (i+1) % 5000 == 501 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
