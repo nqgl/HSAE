@@ -105,8 +105,8 @@ def linspace_l1(ae, l1_radius):
 # l1 coeff prevv got multiplied by 128 - 256 but then l2 was like 256 times too
     # for l1 to get similar gradients, 
     
-ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 500, num_to_resample = 64,
-                                l1_coeff=42e-4, dict_mult=16, batch_size=256, beta2=0.99,
+ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
+                                l1_coeff=60e-4, dict_mult=8, batch_size=256, beta2=0.99,
                                 nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=20000, buffer_refresh_ratio=0.2,
                                 lr=1e-4, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
