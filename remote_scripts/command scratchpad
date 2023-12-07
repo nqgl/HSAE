@@ -1,7 +1,9 @@
-ssh -p 41019 root@66.23.193.13 -L 8080:localhost:8080
+example of sshing to a remote
+    ssh -p 41019 root@66.23.193.13 -L 8080:localhost:8080
 
 pip install transformer-lens
 git clone https://github.com/nqgl/modified-SAE.git
+git checkout resampling
 cd modified-SAE
 python3 train_sae_on_heads.py
 git pull; python3 train_sae_on_heads.py
@@ -12,3 +14,24 @@ git pull; python3 train_sae_on_heads.py
 
 
 git pull; python3 train_sae_on_heads.py
+
+
+Save function whose models we will be loading:
+    def get_version(self):
+        version_list = [int(file.name.split("_")[0]) for file in list(SAVE_DIR.iterdir()) if "_cfg.json" in str(file)]
+        if len(version_list):
+            return 1 + max(version_list)
+        else:
+            return 0
+
+    def save(self, name=""):
+        version = self.get_version()
+        torch.save(self.state_dict(), SAVE_DIR/(str(version)+ "_" + name + ".pt"))
+        with open(SAVE_DIR/(str(version)+ "_" + name + "_cfg.json"), "w") as f:
+            json.dump(asdict(self.cfg), f)
+        print("Saved as version", version)
+
+
+Example for getting a model off of a remote:
+    scp -P 51193 root@47.186.58.92:~/workspace/727_easy-water-163_cfg.json ./models-from-remote/
+
