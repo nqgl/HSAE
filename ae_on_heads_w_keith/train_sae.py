@@ -103,16 +103,17 @@ def linspace_l1(ae, l1_radius):
 # l1 coeff prevv got multiplied by 128 - 256 but then l2 was like 256 times too
     # for l1 to get similar gradients, 
     
+ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 12, num_to_resample = 32,
+                                l1_coeff=38e-4, dict_mult=64, batch_size=512, beta2=0.99,
+                                nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=20000, buffer_refresh_ratio=0.4,
+                                lr=1e-4, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
+
 def main():
     # ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=768, layer=1, model_name="gpt2-small",
     #                             l1_coeff=28e-4, dict_mult=8, batch_size=512, beta2=0.99,
     #                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=400, buffer_r  efresh_ratio=0.5,
     #                             lr=3e-4, cosine_l1={"period": 62063, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 12, num_to_resample = 32,
-                                    l1_coeff=38e-4, dict_mult=64, batch_size=512, beta2=0.99,
-                                    nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=20000, buffer_refresh_ratio=0.4,
-                                    lr=1e-4, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
