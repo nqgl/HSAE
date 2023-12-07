@@ -71,12 +71,12 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 60000 == 13501 and i > 1500:
+            if (i+1) % 40000 == 13501 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
                 freqs = encoder.activation_frequency / encoder.steps_since_activation_frequency_reset
-                to_be_reset = (freqs<10**(-6.5))
+                to_be_reset = (freqs<10**(-5.5))
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
                     encoder.neurons_to_reset(to_be_reset)

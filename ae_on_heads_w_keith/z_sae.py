@@ -359,7 +359,11 @@ class Buffer():
             self.refresh()
 
 
-
+    @torch.no_grad()
+    def skip_first_tokens_ratio(self, skip_percent):
+        self.token_pointer += int(self.all_tokens.shape[0] * skip_percent)
+        self.first = True
+        self.refresh()
 
 
 
