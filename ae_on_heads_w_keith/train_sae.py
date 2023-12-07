@@ -50,6 +50,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     num_reset = waiting - encoder.to_be_reset.shape[0]
                 else:
                     num_reset = waiting
+                n += num_reset - 1
                 wandb.log({"neurons_reset": num_reset})
                 encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
@@ -110,7 +111,7 @@ def linspace_l1(ae, l1_radius):
 # l1 coeff prevv got multiplied by 128 - 256 but then l2 was like 256 times too
     # for l1 to get similar gradients, 
 ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1,
-                            l1_coeff=6e-4, dict_mult=32, batch_size=256, beta2=0.99, seed = 55,
+                            l1_coeff=20e-4, dict_mult=32, batch_size=256, beta2=0.99, seed = 55,
                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=10000, buffer_refresh_ratio=0.25,
                             lr=3e-4, cosine_l1={"period": 78300, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
