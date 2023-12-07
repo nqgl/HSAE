@@ -39,7 +39,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             # scaler.update()
             encoder_optim.step()
             encoder_optim.zero_grad()
-            if i % 400 == 99 and encoder.to_be_reset is not None:
+            if i % 200 == 99 and encoder.to_be_reset is not None:
                 waiting = encoder.to_be_reset.shape[0]
                 wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.shape[0]})
                 encoder.re_init_neurons(acts.float() - x_reconstruct.float())
@@ -109,10 +109,10 @@ def main():
     #                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=400, buffer_r  efresh_ratio=0.5,
     #                             lr=3e-4, cosine_l1={"period": 62063, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
-    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 16, num_to_resample = 32,
+    ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 12, num_to_resample = 32,
                                     l1_coeff=36e-4, dict_mult=16, batch_size=512, beta2=0.99,
                                     nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=20000, buffer_refresh_ratio=0.4,
-                                    lr=3e-5, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                    lr=1e-4, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
     # ae_cfg_z = z_sae.AutoEncoderConfig(site="z", act_size=512, 
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
