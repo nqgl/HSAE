@@ -278,6 +278,12 @@ class AutoEncoder(nn.Module):
         self.load_state_dict(torch.load(pt_name[0]))
         return self
 
+    @classmethod
+    def load_latest(cls, new_cfg = None):
+        version = cls.get_version() - 1
+        ae = cls.load(version, new_cfg)
+        return ae
+
 
 
 # I might come back to this and think about changing refresh ratio up
