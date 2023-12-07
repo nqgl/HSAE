@@ -249,7 +249,8 @@ class AutoEncoder(nn.Module):
         # Bugfix(?) for ensuring W_dec retains unit norm, this was not there when I trained my original autoencoders.
         self.W_dec.data = W_dec_normed
 
-    def get_version(self):
+    @staticmethod
+    def get_version():
         version_list = [int(file.name.split("_")[0]) for file in list(SAVE_DIR.iterdir()) if "_cfg.json" in str(file)]
         if len(version_list):
             return 1 + max(version_list)
