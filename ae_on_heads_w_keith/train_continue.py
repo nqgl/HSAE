@@ -30,16 +30,17 @@ def main():
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
     #                                  lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
-    skip_ratio = 0.75
+    skip_ratio = 0.08
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
-    encoder = z_sae.AutoEncoder.load_latest(new_cfg = cfg)
+    # encoder = z_sae.AutoEncoder.load_latest(new_cfg = cfg)
+    encoder = z_sae.AutoEncoder.load(14, save_dir="~/workspace/")
     # linspace_l1(encoder, 0.2)
 
-    buffer = z_sae.Buffer(cfg, all_tokens, model=model)
+    buffer = z_sae.Buffer(encoder.cfg, all_tokens, model=model)
     buffer.skip_first_tokens_ratio(skip_ratio)
-    train_sae.train(encoder, cfg, buffer, model)
+    train_sae.train(encoder, encoder.cfg, buffer, model)
 
 if __name__ == "__main__":
     main()
