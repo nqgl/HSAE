@@ -179,7 +179,8 @@ class AutoEncoder(nn.Module):
         if to_be_reset.sum() > 0:
             self.to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
             w_enc_norms = self.W_enc[:, ~ to_be_reset].norm(dim=0)
-            print("w_enc_norms", w_enc_norms.shape)
+            # print("w_enc_norms", w_enc_norms.shape)
+            # print("to_be_reset", self.to_be_reset.sum())
             self.alive_norm_along_feature_axis = torch.mean(torch.mean(w_enc_norms))
         else:
             self.to_be_reset = None
