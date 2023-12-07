@@ -12,7 +12,7 @@ MIN_N = 5
 def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sae.Buffer, model :HookedTransformer):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
-    buffer.freshen_buffer(fresh_factor=0)
+    buffer.freshen_buffer(fresh_factor=0.5)
 
     try:
         run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
@@ -42,7 +42,17 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             # scaler.update()
             encoder_optim.step()
             encoder_optim.zero_grad()
-            loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item(), "n" : n}
+            if i % 200 == 99 and encoder.to_be_reset is not None:
+                waiting = encoder.to_be_reset.shape[0]
+                wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.shape[0]})
+                encoder.re_init_neurons(acts.float() - x_reconstruct.float())
+                if encoder.to_be_reset is not None:
+                    num_reset = waiting - encoder.to_be_reset.shape[0]
+                else:
+                    num_reset = waiting
+                wandb.log({"neurons_reset": num_reset})
+                encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
+            loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
                 flex = (flex * 4 + encoder.l0_norm_cached.std().item() + 1) / 5
@@ -50,8 +60,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
             if (i) % 5000 == 0:
-                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=1))
-                buffer.refresh()
+                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=5))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
                 
@@ -67,15 +76,18 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     "time spent shuffling": buffer.time_shuffling,
                     "total time" : time.time() - t0,
                 })
-            if (i+1) % 10000 == 5001 and i > 1500:
+            if i == 13501:
+                encoder.reset_activation_frequencies()    
+            elif i % 15000 == 13501 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
                 freqs = encoder.activation_frequency / encoder.steps_since_activation_frequency_reset
-                to_be_reset = (freqs<10**(-7))
+                to_be_reset = (freqs<10**(-5.5))
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
-                    re_init(model, encoder, buffer, to_be_reset)
+                    encoder.neurons_to_reset(to_be_reset)
+                    # re_init(model, encoder, buffer, to_be_reset)
                 wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t1})
                 encoder.reset_activation_frequencies()
     finally:

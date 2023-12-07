@@ -56,6 +56,9 @@ class AutoEncoderConfig:
     buffer_refresh_ratio :float = 0.1
     nonlinearity :tuple = ("relu", {})
     cosine_l1 :Optional[Dict] = None
+    experimental_type: Optional[str] = None
+    gram_shmidt_trail :int = 5000
+    num_to_resample :int = 128
 
 # Ithink this is gelu_2 specific
 
@@ -144,7 +147,7 @@ class AutoEncoder(nn.Module):
         self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
         self.steps_since_activation_frequency_reset = 0
-
+        self.to_be_reset = None
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False):
         x_cent = x - self.b_dec
@@ -152,8 +155,8 @@ class AutoEncoder(nn.Module):
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
         x_reconstruct = acts @ self.W_dec + self.b_dec
         # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
-        self.l1_loss_cached = torch.pow(acts.float().abs(), 1) # TODO fix this embarrasment
-        # self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1) # don't tell anyone I tried this
+        self.l1_loss_cached = torch.pow(acts.float().abs(), 1)
+        # self.l2_loss_cached = (x_reconstruct.float() - x.float()).abs().mean(-1)
         self.l2_loss_cached = ((x_reconstruct.float() - x.float()).pow(2).mean(-1) + 1e-5)
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1)
@@ -172,6 +175,65 @@ class AutoEncoder(nn.Module):
             self.steps_since_activation_frequency_reset += 1
         return x_reconstruct
     
+    @torch.no_grad()
+    def neurons_to_reset(self, to_be_reset :torch.Tensor):
+        if to_be_reset.sum() > 0:
+            self.to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
+            w_enc_norms = self.W_enc[:, ~ to_be_reset].norm(dim=0)
+            # print("w_enc_norms", w_enc_norms.shape)
+            # print("to_be_reset", self.to_be_reset.sum())
+            self.alive_norm_along_feature_axis = torch.mean(torch.mean(w_enc_norms))
+        else:
+            self.to_be_reset = None
+    
+    @torch.no_grad()
+    def re_init_neurons(self, x_diff):
+        self.re_init_neurons_gram_shmidt_precise(x_diff)
+
+    
+    @torch.no_grad()
+    def re_init_neurons_gram_shmidt_precise(self, x_diff):
+        t = self.cfg.gram_shmidt_trail
+        n_reset = min(x_diff.shape[0], self.cfg.act_size // 2, self.cfg.num_to_resample)
+        v_orth = torch.zeros_like(x_diff)
+        # print(x_diff.shape)
+        # v_orth[0] = F.normalize(x_diff[0], dim=-1)
+        n_succesfully_reset = n_reset
+        for i in range(n_reset):
+            v_orth[i] = x_diff[i]
+            for j in range(max(0, i - t), i):
+                v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
+            if v_orth[i].norm() < 1e-6:
+                n_succesfully_reset = i
+                break
+            v_orth[i] = F.normalize(v_orth[i], dim=-1)
+            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
+            # # print(v_.shape)
+            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
+        self.reset_neurons(v_orth[:n_succesfully_reset])
+
+    @torch.no_grad()
+    def reset_neurons(self, new_directions :torch.Tensor, norm_encoder_proportional_to_alive = True):
+        if new_directions.shape[0] > self.to_be_reset.shape[0]:
+            new_directions = new_directions[:self.to_be_reset.shape[0]]
+        num_resets = new_directions.shape[0]
+        to_reset = self.to_be_reset[:num_resets]
+        self.to_be_reset = self.to_be_reset[num_resets:]
+        if self.to_be_reset.shape[0] == 0:
+            self.to_be_reset = None
+        new_directions = new_directions / new_directions.norm(dim=-1, keepdim=True)
+        print(f"to_reset shape", to_reset.shape)
+        print(f"new_directions shape", new_directions.shape)
+        print(f"self.W_enc shape", self.W_enc.shape)
+        if norm_encoder_proportional_to_alive:
+            self.W_enc.data[:, to_reset] = new_directions.T * self.alive_norm_along_feature_axis * 0.2
+        else:
+            self.W_enc.data[:, to_reset] = new_directions.T
+        self.W_dec.data[to_reset, :] = new_directions
+        self.b_enc.data[to_reset] = 0
+
+
+
     @torch.no_grad()
     def reset_activation_frequencies(self):
         self.activation_frequency[:] = 0
@@ -225,23 +287,26 @@ class AutoEncoder(nn.Module):
         print("Saved as version", version)
 
     @classmethod
-    def load(cls, version, cfg = None):
+    def load(cls, version, cfg = None, save_dir = None):
+        save_dir = SAVE_DIR if save_dir is None else Path(save_dir)
         # get correct name with globbing
         import glob
         if cfg is None:
-            cfg_name = glob.glob(str(SAVE_DIR/(str(version)+"*_cfg.json")))
+            cfg_name = glob.glob(str(save_dir/(str(version)+"*_cfg.json")))
             cfg = json.load(open(cfg_name[0]))
             cfg = AutoEncoderConfig(**cfg)
-        pt_name = glob.glob(str(SAVE_DIR/(str(version)+"*.pt")))
+        pt_name = glob.glob(str(save_dir/(str(version)+"*.pt")))
         pprint.pprint(cfg)
         self = cls(cfg=cfg)
         self.load_state_dict(torch.load(pt_name[0]))
         return self
+
     @classmethod
     def load_latest(cls, new_cfg = None):
         version = cls.get_version() - 1
         ae = cls.load(version, new_cfg)
         return ae
+
 
 
 # I might come back to this and think about changing refresh ratio up
@@ -323,7 +388,11 @@ class Buffer():
             self.refresh()
 
 
-
+    @torch.no_grad()
+    def skip_first_tokens_ratio(self, skip_percent):
+        self.token_pointer += int(self.all_tokens.shape[0] * skip_percent)
+        self.first = True
+        self.refresh()
 
 
 
