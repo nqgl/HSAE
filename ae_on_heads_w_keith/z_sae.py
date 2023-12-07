@@ -178,6 +178,7 @@ class AutoEncoder(nn.Module):
     def neurons_to_reset(self, to_be_reset :torch.Tensor):
         if to_be_reset.sum() > 0:
             self.to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
+            self.alive_norm_along_feature_axis = torch.mean(self.W_enc[:, 1 - to_be_reset].norm(dim=0))
         else:
             self.to_be_reset = None
     
@@ -208,7 +209,7 @@ class AutoEncoder(nn.Module):
         self.reset_neurons(v_orth[:n_succesfully_reset])
 
     @torch.no_grad()
-    def reset_neurons(self, new_directions :torch.Tensor):
+    def reset_neurons(self, new_directions :torch.Tensor, norm_encoder_proportional_to_alive = True):
         if new_directions.shape[0] > self.to_be_reset.shape[0]:
             new_directions = new_directions[:self.to_be_reset.shape[0]]
         num_resets = new_directions.shape[0]
@@ -220,7 +221,10 @@ class AutoEncoder(nn.Module):
         print(f"to_reset shape", to_reset.shape)
         print(f"new_directions shape", new_directions.shape)
         print(f"self.W_enc shape", self.W_enc.shape)
-        self.W_enc.data[:, to_reset] = new_directions.T
+        if norm_encoder_proportional_to_alive:
+            self.W_enc.data[:, to_reset] = new_directions.T * self.alive_norm_along_feature_axis * 0.2
+        else:
+            self.W_enc.data[:, to_reset] = new_directions.T
         self.W_dec.data[to_reset, :] = new_directions
         self.b_enc.data[to_reset] = 0
 
