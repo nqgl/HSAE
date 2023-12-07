@@ -35,7 +35,7 @@ def main():
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
     # encoder = z_sae.AutoEncoder.load_latest(new_cfg = cfg)
-    encoder = z_sae.AutoEncoder.load(14, save_dir="~/workspace/")
+    encoder = z_sae.AutoEncoder.load(14, save_dir="/root/workspace/")
     # linspace_l1(encoder, 0.2)
 
     buffer = z_sae.Buffer(encoder.cfg, all_tokens, model=model)
