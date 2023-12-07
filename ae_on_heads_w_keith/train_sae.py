@@ -36,7 +36,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
             # scaler.scale(loss).backward()
             loss.backward()
-            n = max(MIN_N, (n * 3 + l0_norm.item() + flex/2) / 4)
+            n = max(MIN_N, (n * 3 + l0_norm.item() + flex) / 4)
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
@@ -50,7 +50,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     num_reset = waiting - encoder.to_be_reset.shape[0]
                 else:
                     num_reset = waiting
-                n += num_reset / 4 + 1
+                n += num_reset
                 wandb.log({"neurons_reset": num_reset})
                 encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
