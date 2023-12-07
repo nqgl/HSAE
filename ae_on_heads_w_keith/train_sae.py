@@ -36,13 +36,13 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             l0_norm = encoder.l0_norm_cached.mean() # TODO condisder turning this off if is slows down calculation
             # scaler.scale(loss).backward()
             loss.backward()
-            n = max(MIN_N, (n * 3 + l0_norm.item()) / 4)
+            n = max(MIN_N, (n * 3 + l0_norm.item() + flex) / 4)
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
             encoder_optim.step()
             encoder_optim.zero_grad()
-            if i % 200 == 99 and encoder.to_be_reset is not None:
+            if i % 1000 == 99 and encoder.to_be_reset is not None:
                 waiting = encoder.to_be_reset.shape[0]
                 wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.shape[0]})
                 encoder.re_init_neurons(acts.float() - x_reconstruct.float())
@@ -50,7 +50,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     num_reset = waiting - encoder.to_be_reset.shape[0]
                 else:
                     num_reset = waiting
-                n += num_reset / 4
+                n += num_reset / 4 + 1
                 wandb.log({"neurons_reset": num_reset})
                 encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
@@ -111,7 +111,7 @@ def linspace_l1(ae, l1_radius):
 # l1 coeff prevv got multiplied by 128 - 256 but then l2 was like 256 times too
     # for l1 to get similar gradients, 
 ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, experimental_type="l0l1",
-                            l1_coeff=20e-4, dict_mult=16, batch_size=512, beta2=0.99, seed = 55, num_to_resample=32,
+                            l1_coeff=20e-4, dict_mult=16, batch_size=512, beta2=0.99, seed = 55, num_to_resample=64,
                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=20000, buffer_refresh_ratio=0.4,
                             lr=3e-4, cosine_l1={"period": 78300, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
