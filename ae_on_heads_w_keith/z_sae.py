@@ -60,6 +60,18 @@ class AutoEncoderConfig:
     gram_shmidt_trail :int = 5000
     num_to_resample :int = 128
 
+    def __post_init__(self):
+        print("Post init")
+        self.post_init_cfg()
+
+    def post_init_cfg(self):
+        self.model_batch_size = self.batch_size // self.seq_len * 16
+        self.buffer_size = self.batch_size * self.buffer_mult
+        self.buffer_batches = self.buffer_size // self.seq_len
+        self.act_name = utils.get_act_name(self.site, self.layer)
+        self.dict_size = self.act_size * self.dict_mult
+        self.name = f"{self.model_name}_{self.layer}_{self.dict_size}_{self.site}"
+        return self
 # Ithink this is gelu_2 specific
 
 
@@ -69,14 +81,6 @@ if not SAVE_DIR.exists():
     SAVE_DIR.mkdir()
 
 
-def post_init_cfg(cfg):
-    cfg.model_batch_size = cfg.batch_size // cfg.seq_len * 16
-    cfg.buffer_size = cfg.batch_size * cfg.buffer_mult
-    cfg.buffer_batches = cfg.buffer_size // cfg.seq_len
-    cfg.act_name = utils.get_act_name(cfg.site, cfg.layer)
-    cfg.dict_size = cfg.act_size * cfg.dict_mult
-    cfg.name = f"{cfg.model_name}_{cfg.layer}_{cfg.dict_size}_{cfg.site}"
-    return cfg
 def default_cfg():
     cfg = AutoEncoderConfig(site="z") #gives it default values
     return post_init_cfg(default_cfg)
@@ -92,21 +96,23 @@ def shuffle_documents(all_tokens): # assuming the shape[0] is documents
     return all_tokens[torch.randperm(all_tokens.shape[0])]
 
 
-def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
+def load_data(model :transformer_lens.HookedTransformer, dataset = "NeelNanda/c4-code-tokenized-2b"):
     import os
     reshaped_name = dataset.split("/")[-1] + "_reshaped.pt"
     dataset_reshaped_path = SAVE_DIR / "data" / reshaped_name
     # if dataset exists loading_data_first_time=False
     loading_data_first_time = not dataset_reshaped_path.exists()
 
-    
+    print("first time:", loading_data_first_time)
     if loading_data_first_time:
         data = load_dataset(dataset, split="train", cache_dir=SAVE_DIR / "cache/")
-        data.save_to_disk(os.path.join(SAVE_DIR / "data/", dataset.split("/")[-1]+".hf"))
+        # data.save_to_disk(os.path.join(SAVE_DIR / "data/", dataset.split("/")[-1]+".hf"))
         if "tokens" not in data.column_names:
             if "text" in data.column_names:
                 data.set_format(type="torch", columns=["text"])
-                all_tokens = model.tokenizer(data["text"], return_tensors="pt", padding=True, truncation=True, max_length=128)["input_ids"]
+                data = data["text"]
+                # model.tokenizer.
+                all_tokens = model.tokenizer.tokenize(data["text"], return_tensors="pt", padding=True, truncation=True, max_length=128)
         else:
             data.set_format(type="torch", columns=["tokens"])
             all_tokens = data["tokens"]
@@ -116,7 +122,9 @@ def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
         all_tokens_reshaped = einops.rearrange(all_tokens, "batch (x seq_len) -> (batch x) seq_len", x=8, seq_len=128)
         all_tokens_reshaped[:, 0] = model.tokenizer.bos_token_id
         all_tokens_reshaped = all_tokens_reshaped[torch.randperm(all_tokens_reshaped.shape[0])]
+        print("saving to:", dataset_reshaped_path)
         torch.save(all_tokens_reshaped, dataset_reshaped_path)
+        print("saved reshaped data")
     else:
         # data = datasets.load_from_disk("/workspace/data/c4_code_tokenized_2b.hf")
         all_tokens = torch.load(dataset_reshaped_path)
