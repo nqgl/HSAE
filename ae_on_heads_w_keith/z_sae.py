@@ -103,8 +103,13 @@ def load_data(model, dataset = "NeelNanda/c4-code-tokenized-2b"):
     if loading_data_first_time:
         data = load_dataset(dataset, split="train", cache_dir=SAVE_DIR / "cache/")
         data.save_to_disk(os.path.join(SAVE_DIR / "data/", dataset.split("/")[-1]+".hf"))
-        data.set_format(type="torch", columns=["tokens"])
-        all_tokens = data["tokens"]
+        if "tokens" not in data.column_names:
+            if "text" in data.column_names:
+                data.set_format(type="torch", columns=["text"])
+                all_tokens = model.tokenizer(data["text"], return_tensors="pt", padding=True, truncation=True, max_length=128)["input_ids"]
+        else:
+            data.set_format(type="torch", columns=["tokens"])
+            all_tokens = data["tokens"]
         all_tokens.shape
 
 

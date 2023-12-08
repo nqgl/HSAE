@@ -20,12 +20,12 @@ head_matricies = einops.rearrange(ae.W_dec, "d_dict (n_heads d_head) -> d_dict n
 first_five_features = decoder[250:255]
 
 # plot the first 5 features
-# plt.figure()
-# for i in range(first_five_features.shape[0]):
-#     plt.plot(first_five_features[i].detach().cpu().numpy(), label=f"feature {i}")
-#     plt.legend()
-#     plt.title("First 5 features of the decoder")
-#     plt.show()
+plt.figure()
+for i in range(first_five_features.shape[0]):
+    plt.plot(first_five_features[i].detach().cpu().numpy(), label=f"feature {i}")
+    plt.legend()
+    plt.title("First 5 features of the decoder")
+    plt.show()
 
 
 # abs_head_matricies = torch.abs(head_matricies)
