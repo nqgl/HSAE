@@ -151,9 +151,9 @@ class AutoEncoder(nn.Module):
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
         embeds = model.embed.W_E.data[:cfg.first_n_token_embeddings]
         embed_dirs = embeds / embeds.norm(dim=-1, keepdim=True)
-        embed_dirs = torch.cat((embed_dirs, embed_dirs * -1), dim=0)
         self.W_dec_embed = embed_dirs.detach()
         self.W_dec_embed.requires_grad = False
+        embed_dirs = torch.cat((embed_dirs, embed_dirs * -1), dim=0)
         d_vocab = self.W_dec_embed.shape[0]
         self.b_enc_embed = nn.Parameter(torch.zeros(d_vocab, dtype=dtype))
         self.b_dec_embed = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
@@ -168,6 +168,7 @@ class AutoEncoder(nn.Module):
         self.to(cfg.device)
         self.cfg = cfg      
         self.cached_acts = None
+        self.cached_embed_acts = None
         self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
         self.steps_since_activation_frequency_reset = 0
@@ -176,7 +177,7 @@ class AutoEncoder(nn.Module):
         self.embed_l0_norm_cached = None
         self.step_num = 0
 
-    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, cache_embed_l0 = False):
+    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, cache_embed_l0 = False, cache_embed_acts = False):
         x_cent = x - self.b_dec
         # x_cent_embed = x - self.b_dec_embed
 
@@ -184,15 +185,18 @@ class AutoEncoder(nn.Module):
         acts_embed = self.nonlinearity(x_cent @ self.W_enc_embed + self.b_enc_embed)
         self.embed_l1_loss_cached = acts_embed.float().abs().mean(dim=(-2)).sum()
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
+        size_embed = acts_embed.shape[0]
 
-
-
-        x_reconstruct = acts @ self.W_dec + self.b_dec + acts_embed @ self.W_dec_embed
+        x_reconstruct = acts @ self.W_dec + self.b_dec + (acts_embed[:size_embed//2] - acts_embed[size_embed//2:]) @ self.W_dec_embed
         # x_reconstruct = x_reconstruct + self.b_dec_embed
         x_diff = x_reconstruct.float() - x.float()
 
 
         self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
+        if cache_embed_acts:
+            self.cached_embed_acts = acts_embed
+        else:
+            self.cached_embed_acts = None
         if cache_embed_l0:
             self.embed_l0_norm_cached = (acts_embed > 0).float().sum(dim=-1).mean()
         else:
