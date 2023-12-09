@@ -187,7 +187,7 @@ class AutoEncoder(nn.Module):
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
         size_embed = acts_embed.shape[0]
 
-        x_reconstruct = acts @ self.W_dec + self.b_dec + (acts_embed[:size_embed//2] - acts_embed[size_embed//2:]) @ self.W_dec_embed
+        x_reconstruct = acts @ self.W_dec + self.b_dec + (acts_embed[:, :size_embed//2] - acts_embed[:, size_embed//2:]) @ self.W_dec_embed
         # x_reconstruct = x_reconstruct + self.b_dec_embed
         x_diff = x_reconstruct.float() - x.float()
 
