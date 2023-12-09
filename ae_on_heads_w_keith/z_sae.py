@@ -210,7 +210,7 @@ class AutoEncoder(nn.Module):
             c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
             l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
         scaling2 = self.x_cent_cached.pow(2).sum(-1).mean()
-        scaling1 = self.x_cent_cached.sum(-1).mean()
+        scaling1 = self.x_cent_cached.abs().sum(-1).mean()
 
         l2 = torch.mean(self.l2_loss_cached)
         l1 = torch.sum(l1_coeff * self.l1_loss_cached)
