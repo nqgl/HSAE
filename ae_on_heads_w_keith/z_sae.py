@@ -194,7 +194,7 @@ class AutoEncoder(nn.Module):
             # print("freq shape", self.activation_frequency.shape)
             self.activation_frequency = activated + self.activation_frequency.detach()
             self.steps_since_activation_frequency_reset += 1
-        return self.unscale(x_reconstruct)
+        return self.unscale(x_reconstruct) / self.cfg.data_rescale
     
 
     def get_loss(self):
