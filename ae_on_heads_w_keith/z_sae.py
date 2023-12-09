@@ -59,6 +59,7 @@ class AutoEncoderConfig:
     experimental_type: Optional[str] = None
     gram_shmidt_trail :int = 5000
     num_to_resample :int = 128
+    data_rescale :float = 1.0
 
     def __post_init__(self):
         print("Post init")
@@ -162,6 +163,7 @@ class AutoEncoder(nn.Module):
         self.x_cent_cached = None
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False):
+        x = x * self.cfg.data_rescale
         x_cent = x - self.b_dec
         # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
@@ -187,7 +189,7 @@ class AutoEncoder(nn.Module):
             # print("freq shape", self.activation_frequency.shape)
             self.activation_frequency = activated + self.activation_frequency.detach()
             self.steps_since_activation_frequency_reset += 1
-        return x_reconstruct
+        return x_reconstruct / self.cfg.data_rescale
     
 
 
