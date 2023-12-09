@@ -59,6 +59,7 @@ class AutoEncoderConfig:
     experimental_type: Optional[str] = None
     gram_shmidt_trail :int = 5000
     num_to_resample :int = 128
+    embed_l1 :float = None
 
     def __post_init__(self):
         print("Post init")
@@ -71,6 +72,8 @@ class AutoEncoderConfig:
         self.act_name = utils.get_act_name(self.site, self.layer)
         self.dict_size = self.act_size * self.dict_mult
         self.name = f"{self.model_name}_{self.layer}_{self.dict_size}_{self.site}"
+        if self.embed_l1 is None:
+            self.embed_l1 = self.l1_coeff / 10
         return self
 # Ithink this is gelu_2 specific
 
@@ -83,7 +86,7 @@ if not SAVE_DIR.exists():
 
 def default_cfg():
     cfg = AutoEncoderConfig(site="z") #gives it default values
-    return post_init_cfg(default_cfg)
+    return cfg
 
 def get_model(cfg):
     model = HookedTransformer.from_pretrained(cfg.model_name).to(DTYPES[cfg.enc_dtype]).to(cfg.device)
@@ -133,7 +136,7 @@ def load_data(model :transformer_lens.HookedTransformer, dataset = "NeelNanda/c4
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, cfg, model):
         super().__init__()
         d_dict = cfg.dict_size
         l1_coeff = cfg.l1_coeff
@@ -143,9 +146,16 @@ class AutoEncoder(nn.Module):
         self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(d_dict, cfg.act_size, dtype=dtype)))
         self.b_enc = nn.Parameter(torch.zeros(d_dict, dtype=dtype))
         self.b_dec = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
-
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
-        self.step_num = 0
+        embeds = model.embed.W_E.data
+        embed_dirs = embeds / embeds.norm(dim=-1, keepdim=True)
+        self.W_dec_embed = embed_dirs.detach()
+        self.W_dec_embed.requires_grad = False
+        d_vocab = self.W_dec_embed.shape[0]
+        self.b_enc_embed = nn.Parameter(torch.zeros(d_vocab, dtype=dtype))
+        self.b_dec_embed = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
+        self.W_enc_embed = nn.Parameter(embed_dirs.transpose(0, 1))
+        self.step_W_dec_embednum = 0
         self.d_dict = d_dict
         self.l1_coeff = l1_coeff
         self.acts_cached = None
@@ -159,17 +169,31 @@ class AutoEncoder(nn.Module):
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
         self.steps_since_activation_frequency_reset = 0
         self.to_be_reset = None
+        self.embed_l1_loss_cached = None
+        self.embed_l0_norm_cached = None
 
-    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False):
+
+    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, cache_embed_l0 = False):
         x_cent = x - self.b_dec
-        # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
+        # x_cent_embed = x - self.b_dec_embed
+
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
-        x_reconstruct = acts @ self.W_dec + self.b_dec
-        # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
-        x_diff = x_reconstruct.float() - x.float()
-        # self.re_init_neurons(x_diff)
+        acts_embed = self.nonlinearity(x_cent @ self.W_enc_embed + self.b_enc_embed)
+        self.embed_l1_loss_cached = acts_embed.float().abs().mean(dim=(-2)).sum()
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
+
+
+
+        x_reconstruct = acts @ self.W_dec + self.b_dec + acts_embed @ self.W_dec_embed
+        # x_reconstruct = x_reconstruct + self.b_dec_embed
+        x_diff = x_reconstruct.float() - x.float()
+
+
         self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
+        if cache_embed_l0:
+            self.embed_l0_norm_cached = (acts_embed > 0).float().sum(dim=-1).mean()
+        else:
+            self.embed_l0_norm_cached = None
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean()
         else:
@@ -187,6 +211,18 @@ class AutoEncoder(nn.Module):
             self.steps_since_activation_frequency_reset += 1
         return x_reconstruct
     
+    def get_loss(self):
+        self.step_num += 1
+        
+        if self.cfg.cosine_l1 is None:
+            l1_coeff = self.l1_coeff
+        else:
+            c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
+            l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
+        return torch.mean(self.l2_loss_cached) + torch.sum(l1_coeff * self.l1_loss_cached) + self.cfg.embed_l1 * self.embed_l1_loss_cached
+
+
+
     @torch.no_grad()
     def neurons_to_reset(self, to_be_reset :torch.Tensor):
         if to_be_reset.sum() > 0:
@@ -250,15 +286,6 @@ class AutoEncoder(nn.Module):
     def reset_activation_frequencies(self):
         self.activation_frequency[:] = 0
         self.steps_since_activation_frequency_reset = 0
-
-    def get_loss(self):
-        self.step_num += 1
-        if self.cfg.cosine_l1 is None:
-            l1_coeff = self.l1_coeff
-        else:
-            c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
-            l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
-        return torch.mean(self.l2_loss_cached) + torch.sum(l1_coeff * self.l1_loss_cached)
 
 
     @torch.no_grad()

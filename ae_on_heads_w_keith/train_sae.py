@@ -25,7 +25,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            x_reconstruct = encoder(acts, record_activation_frequency=True)
+            cache_embed_l0 = i % 100 == 0
+            x_reconstruct = encoder(acts, record_activation_frequency=True, cache_embed_l0=record_embed_l0)
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
@@ -52,6 +53,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
+                loss_dict["embed_l0_norm"] = encoder.embed_l0_norm_cached.mean().item()
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
             if (i) % 5000 == 0:
@@ -123,7 +125,7 @@ def main():
     cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
-    encoder = z_sae.AutoEncoder(cfg)
+    encoder = z_sae.AutoEncoder(cfg, model=model)
     # linspace_l1(encoder, 0.2)
     # dataloader, buffer = buffer_dataset.get_dataloader(cfg, all_tokens, model=model, device=torch.device("cpu"))
     # print(buffer.device)
