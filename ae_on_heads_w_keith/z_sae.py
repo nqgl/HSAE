@@ -60,6 +60,7 @@ class AutoEncoderConfig:
     gram_shmidt_trail :int = 5000
     num_to_resample :int = 128
     embed_l1_coeff :float = None
+    l1_embed_coeff_divisor = 2
 
     def __post_init__(self):
         print("Post init")
@@ -73,7 +74,7 @@ class AutoEncoderConfig:
         self.dict_size = self.act_size * self.dict_mult
         self.name = f"{self.model_name}_{self.layer}_{self.dict_size}_{self.site}"
         if self.embed_l1_coeff is None:
-            self.embed_l1_coeff = self.l1_coeff
+            self.embed_l1_coeff = self.l1_coeff / self.l1_embed_coeff_divisor
         return self
 # Ithink this is gelu_2 specific
 
