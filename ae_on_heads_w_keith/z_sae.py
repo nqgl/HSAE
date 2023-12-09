@@ -60,7 +60,7 @@ class AutoEncoderConfig:
     gram_shmidt_trail :int = 5000
     num_to_resample :int = 128
     embed_l1_coeff :float = None
-    l1_embed_coeff_divisor = 2
+    l1_embed_coeff_divisor :float = 2.0
 
     def __post_init__(self):
         print("Post init")
