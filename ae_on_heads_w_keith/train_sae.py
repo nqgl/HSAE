@@ -125,13 +125,13 @@ def main():
     # cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(ae_cfg)
     all_tokens = z_sae.load_data(model)
-    encoder = z_sae.AutoEncoder(cfg, model=model)
+    encoder = z_sae.AutoEncoder(ae_cfg, model=model)
     # linspace_l1(encoder, 0.2)
     # dataloader, buffer = buffer_dataset.get_dataloader(cfg, all_tokens, model=model, device=torch.device("cpu"))
     # print(buffer.device)
     # buffer = buffer_dataset.BufferRefresher(cfg, all_tokens, model, device="cuda")
-    buffer = z_sae.Buffer(cfg, all_tokens, model=model)
-    train(encoder, cfg, buffer, model)
+    buffer = z_sae.Buffer(ae_cfg, all_tokens, model=model)
+    train(encoder, ae_cfg, buffer, model)
 
 if __name__ == "__main__":
     main()

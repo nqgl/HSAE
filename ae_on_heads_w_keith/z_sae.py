@@ -109,7 +109,7 @@ def load_data(model :transformer_lens.HookedTransformer, dataset = "NeelNanda/c4
     print("first time:", loading_data_first_time)
     if loading_data_first_time:
         data = load_dataset(dataset, split="train", cache_dir=SAVE_DIR / "cache/")
-        # data.save_to_disk(os.path.join(SAVE_DIR / "data/", dataset.split("/")[-1]+".hf"))
+        data.save_to_disk(os.path.join(SAVE_DIR / "data/", dataset.split("/")[-1]+".hf"))
         if "tokens" not in data.column_names:
             if "text" in data.column_names:
                 data.set_format(type="torch", columns=["text"])
