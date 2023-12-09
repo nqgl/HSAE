@@ -199,6 +199,7 @@ class AutoEncoder(nn.Module):
     
 
     def rescale_amt(self):
+        return 1
         return F.sigmoid(self.learned_rescale) + F.relu(self.learned_rescale - 1)
 
     def get_loss(self):
