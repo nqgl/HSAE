@@ -158,7 +158,7 @@ class AutoEncoder(nn.Module):
         d_vocab = self.W_dec_embed.shape[0]
         self.b_enc_embed = nn.Parameter(torch.zeros(d_vocab * 2, dtype=dtype))
         self.b_dec_embed = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
-        self.W_enc_embed = nn.Parameter(embed_dirs.transpose(0, 1).half())
+        self.W_enc_embed = nn.Parameter(embed_dirs.transpose(0, 1))
         self.step_W_dec_embednum = 0
         self.d_dict = d_dict
         self.l1_coeff = l1_coeff
@@ -183,7 +183,7 @@ class AutoEncoder(nn.Module):
         # x_cent_embed = x - self.b_dec_embed
 
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
-        acts_embed = self.nonlinearity(x @ self.W_enc_embed + self.b_enc_embed)
+        acts_embed = self.nonlinearity(x.float() @ self.W_enc_embed + self.b_enc_embed)
         self.embed_l1_loss_cached = acts_embed.float().abs().mean(dim=(-2)).sum()
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
         size_embed = acts_embed.shape[-1]
