@@ -41,7 +41,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             encoder_optim.step()
             encoder_optim.zero_grad()
             if cache_var:
-
+                pass
             if i % 200 == 99 and encoder.to_be_reset is not None:
                 waiting = encoder.to_be_reset.shape[0]
                 wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.shape[0]})
