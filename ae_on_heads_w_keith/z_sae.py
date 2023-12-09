@@ -154,17 +154,21 @@ class AutoEncoder(nn.Module):
         self.l1_loss_cached = None
         self.l0_norm_cached = None
         self.cfg = cfg      
-        self.learned_rescale = nn.Parameter(torch.ones(1, dtype=dtype))
         self.to(cfg.device)
         self.cached_acts = None
         self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
         self.steps_since_activation_frequency_reset = 0
         self.to_be_reset = None
-        self.x_cent_cached = None
+        self.scaling_factor = cfg.data_rescale
+        self.std_dev_accumulation = 0
+        self.std_dev_accumulation_steps = 0
 
-    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, cache_var = False):
-        x = x * self.cfg.data_rescale * self.rescale_amt()
+    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, rescaling = False):
+        x = x * self.cfg.data_rescale
+        if rescaling:
+            self.update_scaling(x)
+        x = self.scale(x)
         x_cent = x - self.b_dec
         # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
@@ -174,12 +178,7 @@ class AutoEncoder(nn.Module):
         # self.re_init_neurons(x_diff)
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
         self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
-        self.x_cent_cached = x_cent.detach()
-    
-        if cache_var:
-            self.var_cached = 0
-        else:
-            self.var_cached = None
+
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean()
         else:
@@ -195,12 +194,8 @@ class AutoEncoder(nn.Module):
             # print("freq shape", self.activation_frequency.shape)
             self.activation_frequency = activated + self.activation_frequency.detach()
             self.steps_since_activation_frequency_reset += 1
-        return x_reconstruct / self.cfg.data_rescale / self.rescale_amt()
+        return self.unscale(x_reconstruct)
     
-
-    def rescale_amt(self):
-        return 1
-        return F.sigmoid(self.learned_rescale) + F.relu(self.learned_rescale - 1)
 
     def get_loss(self):
         self.step_num += 1
@@ -209,12 +204,21 @@ class AutoEncoder(nn.Module):
         else:
             c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
             l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
-        scaling2 = self.x_cent_cached.pow(2).sum(-1).mean()
-        scaling1 = self.x_cent_cached.abs().sum(-1).mean()
 
         l2 = torch.mean(self.l2_loss_cached)
         l1 = torch.sum(l1_coeff * self.l1_loss_cached)
-        return l1 / scaling1 + l2 / scaling2
+        return l1 + l2
+
+    def update_scaling(self, x :torch.Tensor):
+        self.std_dev_accumulation += x.std(dim=0).mean()
+        self.std_dev_accumulation_steps += 1
+        self.scaling_factor = self.std_dev_accumulation / self.std_dev_accumulation_steps
+
+    def scale(self, x):
+        return x / self.scaling_factor
+
+    def unscale(self, x):
+        return x * self.scaling_factor
 
 
     @torch.no_grad()

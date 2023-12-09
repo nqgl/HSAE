@@ -25,8 +25,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            cache_var = i < 10000 or i % 100 == 0
-            x_reconstruct = encoder(acts, record_activation_frequency=True, cache_var=cache_var)
+            x_reconstruct = encoder(acts, record_activation_frequency=True, rescaling = i < 10000)
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
@@ -110,7 +109,7 @@ def linspace_l1(ae, l1_radius):
     # for l1 to get similar gradients, 
     
 cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
-                                l1_coeff=3e-4, dict_mult=16, batch_size=512, beta2=0.99, data_rescale = 10,
+                                l1_coeff=3e-4, dict_mult=16, batch_size=512, beta2=0.99,
                                 nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=10000, buffer_refresh_ratio=0.4,
                                 lr=3e-3, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
