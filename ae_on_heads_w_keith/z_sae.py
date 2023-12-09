@@ -212,7 +212,7 @@ class AutoEncoder(nn.Module):
         return x_reconstruct
     
     def get_loss(self):
-        self.step_num += 1
+        # self.step_num += 1
         
         if self.cfg.cosine_l1 is None:
             l1_coeff = self.l1_coeff
