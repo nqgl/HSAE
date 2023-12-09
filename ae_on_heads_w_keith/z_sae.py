@@ -61,7 +61,7 @@ class AutoEncoderConfig:
     num_to_resample :int = 128
     embed_l1_coeff :float = None
     l1_embed_coeff_divisor :float = 2.0
-    first_n_token_embeddings = 20000
+    first_n_token_embeddings :int = 20000
 
     def __post_init__(self):
         print("Post init")
