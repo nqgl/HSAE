@@ -108,7 +108,7 @@ def linspace_l1(ae, l1_radius):
     # for l1 to get similar gradients, 
     
 ae_cfg = z_sae.AutoEncoderConfig(site="resid_post", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
-                                l1_coeff=30e-4, dict_mult=8, batch_size=256, beta2=0.99, l1_embed_coeff_divisor = 2, first_n_token_embeddings = 20000,
+                                l1_coeff=30e-4, dict_mult=8, batch_size=256, beta2=0.99, l1_embed_coeff_divisor = 1, first_n_token_embeddings = 20000,
                                 nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=10000, buffer_refresh_ratio=0.4,
                                 lr=1e-3, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
