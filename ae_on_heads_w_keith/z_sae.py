@@ -153,15 +153,15 @@ class AutoEncoder(nn.Module):
         self.l2_loss_cached = None
         self.l1_loss_cached = None
         self.l0_norm_cached = None
-        self.to(cfg.device)
         self.cfg = cfg      
+        self.learned_rescale = nn.Parameter(torch.ones(1, dtype=dtype))
+        self.to(cfg.device)
         self.cached_acts = None
         self.nonlinearity = config_compatible_relu_choice.cfg_to_nonlinearity(cfg)
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
         self.steps_since_activation_frequency_reset = 0
         self.to_be_reset = None
         self.x_cent_cached = None
-        self.learned_rescale = nn.Parameter(torch.ones(1, dtype=dtype))
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, cache_var = False):
         x = x * self.cfg.data_rescale * self.rescale_amt()
