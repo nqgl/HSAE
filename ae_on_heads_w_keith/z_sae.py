@@ -59,7 +59,7 @@ class AutoEncoderConfig:
     experimental_type: Optional[str] = None
     gram_shmidt_trail :int = 5000
     num_to_resample :int = 128
-    embed_l1 :float = None
+    embed_l1_coeff :float = None
 
     def __post_init__(self):
         print("Post init")
@@ -72,8 +72,8 @@ class AutoEncoderConfig:
         self.act_name = utils.get_act_name(self.site, self.layer)
         self.dict_size = self.act_size * self.dict_mult
         self.name = f"{self.model_name}_{self.layer}_{self.dict_size}_{self.site}"
-        if self.embed_l1 is None:
-            self.embed_l1 = self.l1_coeff
+        if self.embed_l1_coeff is None:
+            self.embed_l1_coeff = self.l1_coeff
         return self
 # Ithink this is gelu_2 specific
 
@@ -219,7 +219,7 @@ class AutoEncoder(nn.Module):
         else:
             c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
             l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
-        return torch.mean(self.l2_loss_cached) + torch.sum(l1_coeff * self.l1_loss_cached) + self.cfg.embed_l1 * self.embed_l1_loss_cached
+        return torch.mean(self.l2_loss_cached) + torch.sum(l1_coeff * self.l1_loss_cached) + self.cfg.embed_l1_coeff * self.embed_l1_loss_cached
 
 
 
