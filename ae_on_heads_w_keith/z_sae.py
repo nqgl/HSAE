@@ -152,6 +152,7 @@ class AutoEncoder(nn.Module):
         embeds = model.embed.W_E.data[:cfg.first_n_token_embeddings]
         embed_dirs = embeds / embeds.norm(dim=-1, keepdim=True)
         self.W_dec_embed = embed_dirs.detach()
+        self.W_dec_embed = nn.Parameter(self.W_dec_embed)
         self.W_dec_embed.requires_grad = False
         embed_dirs = torch.cat((embed_dirs, embed_dirs * -1), dim=0)
         d_vocab = self.W_dec_embed.shape[0]
