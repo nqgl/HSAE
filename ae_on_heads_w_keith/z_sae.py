@@ -214,7 +214,7 @@ class AutoEncoder(nn.Module):
 
         l2 = torch.mean(self.l2_loss_cached)
         l1 = torch.sum(l1_coeff * self.l1_loss_cached)
-        return l1 / scaling1 + l2 / scaling2
+        return l1 / scaling1 + l2 / scaling2.pow(0.5)
 
 
     @torch.no_grad()
