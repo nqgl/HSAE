@@ -204,7 +204,7 @@ class AutoEncoder(nn.Module):
         scaling = self.x_cent_cached.norm(dim=-1).mean()
         l2 = torch.mean(self.l2_loss_cached)
         l1 = torch.sum(l1_coeff * self.l1_loss_cached)
-        return l1 / scaling + l2 / (scaling ** 2)
+        return l1 / torch.sqrt(scaling) + l2 / scaling
 
 
 
