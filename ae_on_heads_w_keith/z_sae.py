@@ -61,6 +61,7 @@ class AutoEncoderConfig:
     num_to_resample :int = 128
     embed_l1_coeff :float = None
     l1_embed_coeff_divisor :float = 2.0
+    first_n_token_embeddings = 20000
 
     def __post_init__(self):
         print("Post init")
@@ -137,7 +138,7 @@ def load_data(model :transformer_lens.HookedTransformer, dataset = "NeelNanda/c4
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, cfg, model):
+    def __init__(self, cfg :AutoEncoderConfig, model):
         super().__init__()
         d_dict = cfg.dict_size
         l1_coeff = cfg.l1_coeff
@@ -148,7 +149,7 @@ class AutoEncoder(nn.Module):
         self.b_enc = nn.Parameter(torch.zeros(d_dict, dtype=dtype))
         self.b_dec = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
-        embeds = model.embed.W_E.data
+        embeds = model.embed.W_E.data[:cfg.first_n_token_embeddings]
         embed_dirs = embeds / embeds.norm(dim=-1, keepdim=True)
         embed_dirs = torch.cat((embed_dirs, embed_dirs * -1), dim=0)
         self.W_dec_embed = embed_dirs.detach()
