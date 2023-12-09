@@ -10,6 +10,12 @@ git pull; python3 train_sae_on_heads.py
 
 
 
+pip install transformer-lens
+git clone https://github.com/nqgl/modified-SAE.git
+git checkout embedding_ae
+cd modified-SAE
+python3 train_sae_on_heads.py
+git pull; python3 train_sae_on_heads.py
 
 
 

@@ -122,7 +122,7 @@ def main():
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
     #                                  lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
-    cfg = z_sae.post_init_cfg(ae_cfg)
+    # cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg, model=model)
