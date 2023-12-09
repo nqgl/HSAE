@@ -159,6 +159,7 @@ class AutoEncoder(nn.Module):
         self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
         self.steps_since_activation_frequency_reset = 0
         self.to_be_reset = None
+        self.x_cent_cached = None
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False):
         x_cent = x - self.b_dec
@@ -170,6 +171,7 @@ class AutoEncoder(nn.Module):
         # self.re_init_neurons(x_diff)
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
         self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
+        self.x_cent_cached = x_cent.detach()
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean()
         else:
@@ -183,10 +185,26 @@ class AutoEncoder(nn.Module):
             activated = torch.mean((acts > 0).float(), dim=0)
             # print("activated shape", activated.shape)
             # print("freq shape", self.activation_frequency.shape)
-            self.activation_frequency = activated + self.activation_frequency
+            self.activation_frequency = activated + self.activation_frequency.detach()
             self.steps_since_activation_frequency_reset += 1
         return x_reconstruct
     
+
+
+    def get_loss(self):
+        self.step_num += 1
+        if self.cfg.cosine_l1 is None:
+            l1_coeff = self.l1_coeff
+        else:
+            c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
+            l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
+        scaling = self.x_cent_cached.norm(dim=-1).mean()
+        l2 = torch.mean(self.l2_loss_cached)
+        l1 = torch.sum(l1_coeff * self.l1_loss_cached)
+        return l1 / scaling + l2 / (scaling ** 2)
+
+
+
     @torch.no_grad()
     def neurons_to_reset(self, to_be_reset :torch.Tensor):
         if to_be_reset.sum() > 0:
@@ -250,15 +268,6 @@ class AutoEncoder(nn.Module):
     def reset_activation_frequencies(self):
         self.activation_frequency[:] = 0
         self.steps_since_activation_frequency_reset = 0
-
-    def get_loss(self):
-        self.step_num += 1
-        if self.cfg.cosine_l1 is None:
-            l1_coeff = self.l1_coeff
-        else:
-            c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
-            l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
-        return torch.mean(self.l2_loss_cached) + torch.sum(l1_coeff * self.l1_loss_cached)
 
 
     @torch.no_grad()
@@ -387,7 +396,7 @@ class Buffer():
 
 
     @torch.no_grad()
-    def skip_first_tokens_ratio(self, skip_percent):
+    def skip_first_tokens_ratio(self, skip_percent, skip_batches):
         self.token_pointer += int(self.all_tokens.shape[0] * skip_percent)
         self.first = True
         self.refresh()
