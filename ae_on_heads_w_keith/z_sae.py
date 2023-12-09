@@ -158,7 +158,7 @@ class AutoEncoder(nn.Module):
         d_vocab = self.W_dec_embed.shape[0]
         self.b_enc_embed = nn.Parameter(torch.zeros(d_vocab * 2, dtype=dtype))
         self.b_dec_embed = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
-        self.W_enc_embed = nn.Parameter(embed_dirs.transpose(0, 1))
+        self.W_enc_embed = nn.Parameter(embed_dirs.transpose(0, 1).half())
         self.step_W_dec_embednum = 0
         self.d_dict = d_dict
         self.l1_coeff = l1_coeff
