@@ -73,7 +73,7 @@ class AutoEncoderConfig:
         self.dict_size = self.act_size * self.dict_mult
         self.name = f"{self.model_name}_{self.layer}_{self.dict_size}_{self.site}"
         if self.embed_l1 is None:
-            self.embed_l1 = self.l1_coeff / 10
+            self.embed_l1 = self.l1_coeff
         return self
 # Ithink this is gelu_2 specific
 
