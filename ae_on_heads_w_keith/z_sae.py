@@ -171,7 +171,7 @@ class AutoEncoder(nn.Module):
         self.to_be_reset = None
         self.embed_l1_loss_cached = None
         self.embed_l0_norm_cached = None
-
+        self.step_num = 0
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, cache_embed_l0 = False):
         x_cent = x - self.b_dec
@@ -212,7 +212,7 @@ class AutoEncoder(nn.Module):
         return x_reconstruct
     
     def get_loss(self):
-        # self.step_num += 1
+        self.step_num += 1
         
         if self.cfg.cosine_l1 is None:
             l1_coeff = self.l1_coeff
