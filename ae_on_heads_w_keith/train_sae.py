@@ -107,9 +107,9 @@ def linspace_l1(ae, l1_radius):
     # for l1 to get similar gradients, 
     
 cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
-                                l1_coeff=30e-4, dict_mult=16, batch_size=512, beta2=0.99,
+                                l1_coeff=3e-4, dict_mult=16, batch_size=512, beta2=0.99,
                                 nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=10000, buffer_refresh_ratio=0.4,
-                                lr=3e-2, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                lr=3e-3, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
     # ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=768, layer=1, model_name="gpt2-small",
