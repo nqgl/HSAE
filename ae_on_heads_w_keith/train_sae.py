@@ -26,7 +26,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
             cache_embed_l0 = i % 100 == 0
-            x_reconstruct = encoder(acts, record_activation_frequency=True, cache_embed_l0=record_embed_l0)
+            x_reconstruct = encoder(acts, record_activation_frequency=True, cache_embed_l0=cache_embed_l0)
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
