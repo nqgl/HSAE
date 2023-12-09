@@ -191,6 +191,7 @@ class AutoEncoder(nn.Module):
     
 
 
+
     def get_loss(self):
         self.step_num += 1
         if self.cfg.cosine_l1 is None:
