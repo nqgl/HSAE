@@ -49,6 +49,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     num_reset = waiting
                 wandb.log({"neurons_reset": num_reset})
                 encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
+                torch.cuda.empty_cache()
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
@@ -106,7 +107,7 @@ def linspace_l1(ae, l1_radius):
     # for l1 to get similar gradients, 
     
 cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
-                                l1_coeff=60e-4, dict_mult=16, batch_size=1024, beta2=0.99,
+                                l1_coeff=30e-4, dict_mult=16, batch_size=1024, beta2=0.99,
                                 nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=10000, buffer_refresh_ratio=0.4,
                                 lr=3e-4, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
