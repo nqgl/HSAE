@@ -154,8 +154,8 @@ class AutoEncoder(nn.Module):
         self.W_dec_embed = embed_dirs.detach()
         self.W_dec_embed.requires_grad = False
         embed_dirs = torch.cat((embed_dirs, embed_dirs * -1), dim=0)
-        d_vocab = self.W_dec_embed.shape[0]
-        self.b_enc_embed = nn.Parameter(torch.zeros(d_vocab, dtype=dtype))
+        d_vocab = self.W_decembed.shape[0]
+        self.b_enc_embed = nn.Parameter(torch.zeros(d_vocab * 2, dtype=dtype))
         self.b_dec_embed = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
         self.W_enc_embed = nn.Parameter(embed_dirs.transpose(0, 1))
         self.step_W_dec_embednum = 0
