@@ -150,6 +150,7 @@ class AutoEncoder(nn.Module):
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
         embeds = model.embed.W_E.data
         embed_dirs = embeds / embeds.norm(dim=-1, keepdim=True)
+        embed_dirs = torch.cat((embed_dirs, embed_dirs * -1), dim=0)
         self.W_dec_embed = embed_dirs.detach()
         self.W_dec_embed.requires_grad = False
         d_vocab = self.W_dec_embed.shape[0]
