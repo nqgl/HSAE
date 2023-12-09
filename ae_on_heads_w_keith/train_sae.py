@@ -11,7 +11,6 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
     # buffer.freshen_buffer(fresh_factor=0.5)
-
     try:
         run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
@@ -20,12 +19,14 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         # model_num_batches = cfg.model_batch_size * num_batches
         # encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
+        var_optim = torch.optim.Adam([encoder.learned_rescale], lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            x_reconstruct = encoder(acts, record_activation_frequency=True)
+            cache_var = i < 10000 or i % 100 == 0
+            x_reconstruct = encoder(acts, record_activation_frequency=True, cache_var=cache_var)
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
@@ -39,6 +40,8 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
             # scaler.update()
             encoder_optim.step()
             encoder_optim.zero_grad()
+            if cache_var:
+
             if i % 200 == 99 and encoder.to_be_reset is not None:
                 waiting = encoder.to_be_reset.shape[0]
                 wandb.log({"neurons_waiting_to_reset": encoder.to_be_reset.shape[0]})

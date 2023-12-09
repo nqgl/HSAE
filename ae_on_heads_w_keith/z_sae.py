@@ -161,9 +161,10 @@ class AutoEncoder(nn.Module):
         self.steps_since_activation_frequency_reset = 0
         self.to_be_reset = None
         self.x_cent_cached = None
+        self.learned_rescale = nn.Parameter(torch.ones(1, dtype=dtype))
 
-    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False):
-        x = x * self.cfg.data_rescale
+    def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, cache_var = False):
+        x = x * self.cfg.data_rescale * self.rescale_amt()
         x_cent = x - self.b_dec
         # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
@@ -174,6 +175,11 @@ class AutoEncoder(nn.Module):
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
         self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
         self.x_cent_cached = x_cent.detach()
+    
+        if cache_var:
+            self.var_cached = 0
+        else:
+            self.var_cached = None
         if cache_l0:
             self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean()
         else:
@@ -189,10 +195,11 @@ class AutoEncoder(nn.Module):
             # print("freq shape", self.activation_frequency.shape)
             self.activation_frequency = activated + self.activation_frequency.detach()
             self.steps_since_activation_frequency_reset += 1
-        return x_reconstruct / self.cfg.data_rescale
+        return x_reconstruct / self.cfg.data_rescale / self.rescale_amt()
     
 
-
+    def rescale_amt(self):
+        return F.sigmoid(self.learned_rescale) + F.relu(self.learned_rescale - 1)
 
     def get_loss(self):
         self.step_num += 1
@@ -201,11 +208,10 @@ class AutoEncoder(nn.Module):
         else:
             c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
             l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
-        scaling = self.x_cent_cached.norm(dim=-1).mean()
+        scaling = self.x_cent_cached.pow(2).sum(-1).mean()
         l2 = torch.mean(self.l2_loss_cached)
         l1 = torch.sum(l1_coeff * self.l1_loss_cached)
-        return l1 + l2 / scaling.pow(0.5)
-
+        return l1 / scaling.pow(0.5) + l2 / scaling
 
 
     @torch.no_grad()
