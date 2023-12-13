@@ -11,7 +11,6 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
     # buffer.freshen_buffer(fresh_factor=0.5)
-
     try:
         run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
@@ -25,7 +24,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            x_reconstruct = encoder(acts, record_activation_frequency=True)
+            x_reconstruct = encoder(acts, record_activation_frequency=True, rescaling = i < 10000)
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
@@ -49,6 +48,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                     num_reset = waiting
                 wandb.log({"neurons_reset": num_reset})
                 encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
+                torch.cuda.empty_cache()
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
             if (i) % 100 == 0:
@@ -73,7 +73,7 @@ def train(encoder :z_sae.AutoEncoder, cfg :z_sae.AutoEncoderConfig, buffer :z_sa
                 })
             if i == 13501:
                 encoder.reset_activation_frequencies()    
-            elif i % 15000 == 13501 and i > 1500:
+            elif i % 25000 == 13501 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -105,10 +105,10 @@ def linspace_l1(ae, l1_radius):
 # l1 coeff prevv got multiplied by 128 - 256 but then l2 was like 256 times too
     # for l1 to get similar gradients, 
     
-ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
-                                l1_coeff=60e-4, dict_mult=32, batch_size=1024, beta2=0.99,
-                                nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=10000, buffer_refresh_ratio=0.4,
-                                lr=3e-4, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
+cfg = z_sae.AutoEncoderConfig(site="resid_pre", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
+                                l1_coeff=2e-2, dict_mult=16, batch_size=512, beta2=0.99,
+                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=10000, buffer_refresh_ratio=0.4,
+                                lr=1e-4, cosine_l1={"period": 620063, "range" : 0.0125}) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
     # ae_cfg = z_sae.AutoEncoderConfig(site="z", act_size=768, layer=1, model_name="gpt2-small",
@@ -120,7 +120,7 @@ def main():
     #                                  l1_coeff=2e-3,
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
     #                                  lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
-    cfg = z_sae.post_init_cfg(ae_cfg)
+    # cfg = z_sae.post_init_cfg(ae_cfg)
     model = z_sae.get_model(cfg)
     all_tokens = z_sae.load_data(model)
     encoder = z_sae.AutoEncoder(cfg)
