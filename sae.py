@@ -62,6 +62,7 @@ class AutoEncoder(nn.Module):
         x = x * self.cfg.data_rescale
         if rescaling:
             self.update_scaling(x)
+        
         x = self.scale(x)
         x_cent = x - self.b_dec
         # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
@@ -73,14 +74,8 @@ class AutoEncoder(nn.Module):
         self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
         self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
 
-        if cache_l0:
-            self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean()
-        else:
-            self.l0_norm_cached = None
-        if cache_acts:
-            self.cached_acts = acts
-        else:
-            self.cached_acts = None
+        self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean() if cache_l0 else None
+        self.cached_acts = acts if cache_acts else None
         if record_activation_frequency:
             # print(acts.shape)
             activated = torch.mean((acts > 0).float(), dim=0)
@@ -90,6 +85,7 @@ class AutoEncoder(nn.Module):
             self.steps_since_activation_frequency_reset += 1
         return self.unscale(x_reconstruct) / self.cfg.data_rescale
     
+
 
     def get_loss(self):
         self.step_num += 1
