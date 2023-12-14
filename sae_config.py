@@ -48,7 +48,7 @@ class AutoEncoderConfig: #TODO some of these types are wrong. possibly some fiel
         self.buffer_size = self.batch_size * self.buffer_mult
         self.buffer_batches = self.buffer_size // self.seq_len
         self.act_name = utils.get_act_name(self.site, self.layer)
-        self.dict_size = self.act_size * self.dict_mult
+        self.dict_size = int(self.act_size * self.dict_mult)
         self.name = f"{self.model_name}_{self.layer}_{self.dict_size}_{self.site}"
         return self
 

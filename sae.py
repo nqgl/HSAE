@@ -1,6 +1,6 @@
 # pair programming by Glen Taggart and Kieth Wynroe based mostly off of 
 # this work https://colab.research.google.com/drive/1MjF_5-msnSe5F9Qy4kEGSeqyYPE9_D2p?authuser=1#scrollTo=7WXAjU3mRak6
-# done by Neel Nanda and others
+# which I think was made by Bart Bussman, based off Neel Nanda's code.
 import novel_nonlinearities
 
 import torch
