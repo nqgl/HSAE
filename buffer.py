@@ -65,6 +65,7 @@ class Buffer():
 
             for i in range(self.cfg.subshuffle):
                 self.buffer[i::self.cfg.subshuffle] = self.buffer[i::self.cfg.subshuffle][rperm][perm - i]
+            for i in range(self.cfg.subshuffle):
                 self.buffer[i*ssize:(i+1)*ssize] = self.buffer[i*ssize:(i+1)*ssize][rperm]
 
 
