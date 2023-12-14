@@ -57,7 +57,7 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :Buffer, model :H
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
             if (i) % 5000 == 0:
-                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=5))
+                x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=1))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
                 
@@ -97,7 +97,7 @@ def linspace_l1(ae, l1_radius):
     
 cfg = AutoEncoderConfig(site="resid_pre", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
                                 l1_coeff=3e-4, dict_mult=1, batch_size=1024, beta2=0.999,
-                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 32, buffer_refresh_ratio=0.25,
+                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 32 * 3, buffer_refresh_ratio=0.25,
                                 lr=3e-5) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
