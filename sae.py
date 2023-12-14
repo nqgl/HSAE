@@ -93,14 +93,20 @@ class AutoEncoder(nn.Module):
         l1 = torch.sum(l1_coeff * self.l1_loss_cached)
         return l1 + l2
 
+    @torch.no_grad()
     def update_scaling(self, x :torch.Tensor):
-        self.std_dev_accumulation += x.std(dim=0).mean()
+        x_cent = x - x.mean(dim=0)
+        var = (x_cent ** 2).mean()
+        std = torch.sqrt(var)
+        self.std_dev_accumulation += std #x_cent.std(dim=0).mean() is p diferent I believe
         self.std_dev_accumulation_steps += 1
         self.scaling_factor = self.std_dev_accumulation / self.std_dev_accumulation_steps
 
+    @torch.no_grad()
     def scale(self, x):
         return x / self.scaling_factor
 
+    @torch.no_grad()
     def unscale(self, x):
         return x * self.scaling_factor
 
