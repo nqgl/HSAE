@@ -54,7 +54,21 @@ class Buffer():
                 self.token_pointer += self.cfg.model_batch_size
 
         self.pointer = 0
-        self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.cfg.device)]
+        if self.cfg.subshuffle is None:
+            self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.cfg.device)]
+        else:
+            ssize = self.buffer.shape[0] // self.cfg.subshuffle
+            assert self.buffer.shape[0] % self.cfg.subshuffle == 0
+            rperm = torch.randperm(ssize).to(self.cfg.device)
+            # self.buffer[::self.cfg.subshuffle] = self.buffer[::self.cfg.subshuffle][rperm]
+            perm = torch.arange(ssize)
+
+            for i in range(self.cfg.subshuffle):
+                self.buffer[i::self.cfg.subshuffle] = self.buffer[i::self.cfg.subshuffle][rperm][perm - i]
+                self.buffer[i*ssize:(i+1)*ssize] = self.buffer[i*ssize:(i+1)*ssize][rperm]
+
+
+
         self.time_shuffling += time.time() - t0
         # torch.cuda.empty_cache()
     

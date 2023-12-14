@@ -48,6 +48,16 @@ class AutoEncoder(nn.Module):
         self.std_dev_accumulation = 0
         self.std_dev_accumulation_steps = 0
 
+    def encode(self, x, cache_acts = False, cache_l0 = False, record_activation_frequency = False, rescaling = False):
+        x = x * self.cfg.data_rescale
+        if rescaling:
+            self.update_scaling(x)
+        x = self.scale(x)
+        x_cent = x - self.b_dec
+        # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
+        acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
+        return acts
+
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, rescaling = False):
         x = x * self.cfg.data_rescale
         if rescaling:

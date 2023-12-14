@@ -38,6 +38,7 @@ class AutoEncoderConfig: #TODO some of these types are wrong. possibly some fiel
     gram_shmidt_trail :int = 5000
     num_to_resample :int = 128
     data_rescale :float = 1.0
+    subshuffle :Optional[int] = None
 
     def __post_init__(self):
         print("Post init")
