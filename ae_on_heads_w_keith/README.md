@@ -1,1 +1,0 @@
-Adapted from a colab made by Bart Bussman which was based on code from Neel Nanda. Keith Wynroe and I pair programmed the initial implementation and got it running. 
