@@ -20,13 +20,13 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :Buffer, model :H
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
         # encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
-        encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
+        encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            x_reconstruct = encoder(acts, record_activation_frequency=True, rescaling = i < 10000)
+            x_reconstruct = encoder(acts, record_activation_frequency=True, rescaling = i < 10 or (i < 100 * cfg.buffer_mult * cfg.buffer_refresh_ratio and i % 100 == 0))
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
@@ -49,7 +49,7 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :Buffer, model :H
                 else:
                     num_reset = waiting
                 wandb.log({"neurons_reset": num_reset})
-                encoder_optim = torch.optim.AdamW(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
+                encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
                 torch.cuda.empty_cache()
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
@@ -96,9 +96,9 @@ def linspace_l1(ae, l1_radius):
     ae.l1_coeff = l1
     
 cfg = AutoEncoderConfig(site="resid_pre", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
-                                l1_coeff=2e-2, dict_mult=1, batch_size=2048 // 2, beta2=0.99,
-                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 8, buffer_refresh_ratio=0.25,
-                                lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                l1_coeff=2e-2, dict_mult=1, batch_size=2048, beta2=0.99,
+                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128, buffer_refresh_ratio=0.25,
+                                lr=1e-3) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
     # ae_cfg = AutoEncoderConfig(site="z", act_size=768, layer=1, model_name="gpt2-small",
