@@ -96,7 +96,7 @@ def linspace_l1(ae, l1_radius):
     ae.l1_coeff = l1
     
 cfg = AutoEncoderConfig(site="resid_pre", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
-                                l1_coeff=3e-4, dict_mult=1, batch_size=4096 * 4, beta2=0.99,
+                                l1_coeff=3e-4, dict_mult=1, batch_size=4096 * 2, beta2=0.99,
                                 nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=4, buffer_refresh_ratio=0.5,
                                 lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
 
