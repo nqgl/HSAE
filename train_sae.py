@@ -26,7 +26,7 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :Buffer, model :H
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
-            x_reconstruct = encoder(acts, record_activation_frequency=True, rescaling = i < 10 or (i < 100 * cfg.buffer_mult * cfg.buffer_refresh_ratio and i % 100 == 0))
+            x_reconstruct = encoder(acts, record_activation_frequency=True, rescaling = i < 10 or (i < 10000 * cfg.batch_size / cfg.buffer_mult * cfg.buffer_refresh_ratio and i % 100 == 0))
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
@@ -97,7 +97,7 @@ def linspace_l1(ae, l1_radius):
     
 cfg = AutoEncoderConfig(site="resid_pre", act_size=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 64,
                                 l1_coeff=2e-2, dict_mult=1, batch_size=2048, beta2=0.99,
-                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 64, buffer_refresh_ratio=0.25,
+                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 32, buffer_refresh_ratio=0.25,
                                 lr=1e-3) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
