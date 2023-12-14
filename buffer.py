@@ -56,7 +56,7 @@ class Buffer():
         self.pointer = 0
         self.buffer = self.buffer[torch.randperm(self.buffer.shape[0]).to(self.cfg.device)]
         self.time_shuffling += time.time() - t0
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
     
     @torch.no_grad()
     def next(self):
