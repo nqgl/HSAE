@@ -10,7 +10,7 @@ class HierarchicalAutoEncoderConfig(AutoEncoderConfig):
     num_layers :int = 2
     sublayer_cfgs :List["HierarchicalAutoEncoderLayerConfig"] = field(default_factory= lambda :[])
     sublayers_train_on_error :bool = False
-    layer_cfg_params :dict = field(default_factory = lambda :{})
+    layer_cfg_params :Dict = field(default_factory = lambda :{})
     layer_cfg_params_per_layer :List[Dict] = field(default_factory = lambda :[])
     gate_mode :str = "binary"
 
