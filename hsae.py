@@ -25,7 +25,7 @@ class HierarchicalAutoEncoder(nn.Module):
             for layer_cfg in cfg.sublayer_cfgs)
         self.cfg = cfg
 
-    def forward(self, x, rescaling=False):
+    def forward(self, x, rescaling=False, record_activation_frequency=False):
         if rescaling:
             self.sae_0.update_scaling(x)
         x = self.sae_0.scale(x)
