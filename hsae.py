@@ -43,6 +43,8 @@ class HierarchicalAutoEncoder(nn.Module):
             acts = sae.cached_acts
             self.cached_l1_loss += sae.cached_l1_loss
         self.cached_l2_loss = (x - x_n) ** 2
+        self.cached_l1_loss = self.sae_0.cached_l1_loss
+        self.cached_l0_norm = self.sae_0.cached_l0_norm
         return self.sae_0.unscale(x_n)
 
     def gate(self, acts):
