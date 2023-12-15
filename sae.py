@@ -35,7 +35,6 @@ class AutoEncoder(nn.Module):
     
 
         
-        self.to(cfg.device)
         
         # this is useful for implementing non-const l1 currently
         self.l1_coeff = cfg.l1_coeff
@@ -55,6 +54,7 @@ class AutoEncoder(nn.Module):
         self.scaling_factor = nn.Parameter(torch.tensor(self.cfg0.data_rescale), requires_grad=False)
         self.std_dev_accumulation = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.std_dev_accumulation_steps = nn.Parameter(torch.zeros(1), requires_grad=False)
+        self.to(cfg.device)
         
         self.step_num = 0
 
