@@ -16,9 +16,9 @@ from hsae_config import HierarchicalAutoEncoderConfig, HierarchicalAutoEncoderLa
 from setup_utils import SAVE_DIR, DTYPES
 
 
-class HierarchicalAutoEncoder(nn.Module):
+class HierarchicalAutoEncoder(AutoEncoder, nn.Module):
     def __init__(self, cfg :HierarchicalAutoEncoderConfig, sae0 :Optional[AutoEncoder] = None):
-        super().__init__()
+        super().__init__(cfg)
         self.sae_0 = AutoEncoder(cfg) if sae0 is None else sae0
         self.saes = nn.ModuleList(
                 HierarchicalAutoEncoderLayer(cfg = layer_cfg, cfg_0=cfg)
