@@ -111,15 +111,6 @@ cfg = HierarchicalAutoEncoderConfig(site="resid_pre", d_data=512, layer=1, gram_
                                 ) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
-    # ae_cfg = AutoEncoderConfig(site="z", act_size=768, layer=1, model_name="gpt2-small",
-    #                             l1_coeff=28e-4, dict_mult=8, batch_size=512, beta2=0.99,
-    #                             nonlinearity=("relu", {}), flatten_heads=True, buffer_mult=400, buffer_r  efresh_ratio=0.5,
-    #                             lr=3e-4, cosine_l1={"period": 62063, "range" : 0.05}) #original 3e-4 8e-4 or same but 1e-3 on l1
-
-    # ae_cfg_z = AutoEncoderConfig(site="z", act_size=512, 
-    #                                  l1_coeff=2e-3,
-    #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
-    #                                  lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
     # cfg = sae.post_init_cfg(ae_cfg)
     model = get_model(cfg)
     all_tokens = load_data(model)
