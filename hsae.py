@@ -187,7 +187,8 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         
 
 
-
+    def get_loss(self):
+        return self.cached_l1_loss * self.cfg.l1_coeff
 
 
     def cache(self, acts, cache_l0 = True, cache_acts = True):
