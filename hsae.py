@@ -52,6 +52,12 @@ class HierarchicalAutoEncoder(nn.Module):
             return acts / (acts.norm(dim=-1, keepdim=True) + 1e-9)
         elif self.cfg.gate_mode == "acts":
             return acts
+        
+    def make_decoder_weights_and_grad_unit_norm(self):
+        self.sae_0.make_decoder_weights_and_grad_unit_norm()
+        for sae in self.saes:
+            sae.make_decoder_weights_and_grad_unit_norm()
+
 
 
 class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
@@ -174,7 +180,6 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         # x_reconstruct = self.unscale(x_out)
         return x_out
         
-
 
 
 

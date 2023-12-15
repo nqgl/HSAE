@@ -23,6 +23,7 @@ def train(encoder :HierarchicalAutoEncoder, cfg :AutoEncoderConfig, buffer :Buff
         encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
         recons_scores = []
         act_freq_scores_list = []
+        print("starting")
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
             acts = buffer.next()
@@ -106,8 +107,7 @@ def linspace_l1(ae, l1_radius):
 cfg = HierarchicalAutoEncoderConfig(site="resid_pre", d_data=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
                                 l1_coeff=35e-5, dict_mult=2, batch_size=1024, beta2=0.999,
                                 nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 16, buffer_refresh_ratio=0.25,
-                                lr=1e-4,
-                                ) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
     # cfg = sae.post_init_cfg(ae_cfg)
