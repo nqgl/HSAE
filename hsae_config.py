@@ -29,7 +29,7 @@ class HierarchicalAutoEncoderConfig(AutoEncoderConfig):
             num_features_at_layer = 1 * self.d_dict
             for i in range(0, self.num_layers - 1):
                 cfg_params = {**self.layer_cfg_params, **self.layer_cfg_params_per_layer[i + 1]}
-                hlcfg = HierarchicalAutoEncoderLayerConfig(cfg=self,
+                hlcfg = HierarchicalAutoEncoderLayerConfig(
                     layer_index = i,
                     d_dict = self.features_per_sae_per_layer[i + 1],
                     n_sae = num_features_at_layer,
@@ -46,7 +46,6 @@ class HierarchicalAutoEncoderConfig(AutoEncoderConfig):
 @dataclass
 class HierarchicalAutoEncoderLayerConfig():
     layer_index :int
-    cfg :HierarchicalAutoEncoderConfig
 
     # calculated numbers
     n_sae :int = None               # alt name layer_width
