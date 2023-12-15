@@ -121,7 +121,7 @@ class AutoEncoder(nn.Module):
         std = torch.sqrt(var)
         self.std_dev_accumulation += std #x_cent.std(dim=0).mean() is p diferent I believe
         self.std_dev_accumulation_steps += 1
-        self.scaling_factor = self.std_dev_accumulation / self.std_dev_accumulation_steps / self.cfg0.data_rescale
+        self.scaling_factor.data[:] = self.std_dev_accumulation / self.std_dev_accumulation_steps / self.cfg0.data_rescale
 
     @torch.no_grad()
     def scale(self, x):
