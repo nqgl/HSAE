@@ -6,7 +6,7 @@ git clone https://github.com/nqgl/modified-SAE.git
 git checkout synthetic_features
 cd modified-SAE
 python3 train_sae_on_heads.py
-git pull; python3 train_sae_on_heads.py
+git pull; python3 train_hsae.py
 
 
 

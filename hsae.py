@@ -133,6 +133,9 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         return acts
 
     def decode_flat(self, acts, W_dec, b_dec):
+        print("acts shape:", acts.shape)
+        print("W_dec shape:", W_dec.shape)
+        print("b_dec shape:", b_dec.shape)
         return acts @ W_dec + b_dec
             
 
