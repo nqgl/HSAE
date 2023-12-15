@@ -58,6 +58,11 @@ class HierarchicalAutoEncoder(nn.Module):
         for sae in self.saes:
             sae.make_decoder_weights_and_grad_unit_norm()
 
+    def get_loss(self):
+        l = self.sae_0.get_loss()
+        for sae in self.saes:
+            l += sae.get_loss()
+        return l
 
 
 class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
