@@ -15,7 +15,7 @@ def precompute_activations(model, cfg :AutoEncoderConfig, tokens, token_start = 
         buffer.freshen_buffer(2)
     # buffer.skip_first_tokens_ratio(0.08)
     prev_chunk = None
-    next_chunk = torch.zeros((cfg.buffer_size, cfg.act_size), device="cuda")
+    next_chunk = torch.zeros((cfg.buffer_size, cfg.d_data), device="cuda")
     for i in tqdm.trange(proportion_of_data * cfg.num_tokens // cfg.batch_size):
         acts = buffer.next()
         print(acts.shape)

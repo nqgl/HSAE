@@ -1,35 +1,44 @@
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 from sae_config import AutoEncoderConfig
 
 @dataclass
 class HierarchicalAutoEncoderConfig(AutoEncoderConfig):
     geometric_median_dataset: bool = False
-    features_per_sae_per_layer = List[int] = [None, 32]
+    features_per_sae_per_layer :List[Optional[int]] = field(default_factory = lambda :[None, 32])
     num_layers :int = 2
-    sublayer_cfgs :List["HierarchicalAutoEncoderLayerConfig"] = None
+    sublayer_cfgs :List["HierarchicalAutoEncoderLayerConfig"] = field(default_factory= lambda :[])
     sublayers_train_on_error :bool = False
-    layer_cfg_params :dict = {}
-    layer_cfg_params_per_layer :List[Dict] = [{}]
+    layer_cfg_params :dict = field(default_factory = lambda :{})
+    layer_cfg_params_per_layer :List[Dict] = field(default_factory = lambda :[])
+    gate_mode :str = "binary"
 
+    
     def __post_init__(self):
         super().__post_init__()
 
         if self.features_per_sae_per_layer[0] is None:
-            self.features_per_sae_per_layer[0] = self.dict_size
+            self.features_per_sae_per_layer[0] = self.d_dict
 
-        if self.sublayer_cfgs is None:
-            num_features_at_layer = 1 * self.dict_size
+        if len(self.layer_cfg_params_per_layer) < self.num_layers:
+            self.layer_cfg_params_per_layer += [{} for _ in range(self.num_layers - len(self.layer_cfg_params_per_layer))]
+
+
+        if self.sublayer_cfgs == []:
+            num_features_at_layer = 1 * self.d_dict
             for i in range(0, self.num_layers - 1):
-                cfg_params = {**self.layer_cfg_params, **self.layer_cfg_params_per_layer[i]}
-                hlcfg = HierarchicalAutoEncoderLayerConfig(
+                cfg_params = {**self.layer_cfg_params, **self.layer_cfg_params_per_layer[i + 1]}
+                hlcfg = HierarchicalAutoEncoderLayerConfig(cfg=self,
                     layer_index = i,
-                    dict_size = self.features_per_sae_per_layer[i],
-                    num_saes = num_features_at_layer,
+                    d_dict = self.features_per_sae_per_layer[i + 1],
+                    n_sae = num_features_at_layer,
+                    **cfg_params
 
                 )
-                num_saes *= hlcfg.dict_size
+                num_features_at_layer *= hlcfg.d_dict
+                self.sublayer_cfgs.append(hlcfg)
+        self.scale_in_forward = False
 
             
                 
@@ -37,12 +46,11 @@ class HierarchicalAutoEncoderConfig(AutoEncoderConfig):
 @dataclass
 class HierarchicalAutoEncoderLayerConfig():
     layer_index :int
-
-    
+    cfg :HierarchicalAutoEncoderConfig
 
     # calculated numbers
-    num_saes: int = None               # alt name layer_width
-    dict_size :int = None
+    n_sae :int = None               # alt name layer_width
+    d_dict :int = None
 
     # normal params
     nonlinearity :tuple = ("relu", {})
@@ -56,7 +64,7 @@ class HierarchicalAutoEncoderLayerConfig():
 
 
 
-    def __init__(self, cfg :HierarchicalAutoEncoderConfig, **kwargs):
+    # def __init__(self, cfg :HierarchicalAutoEncoderConfig, **kwargs):
 
-        super().__init__(**kwargs)
+    #     super().__init__(**kwargs)
 

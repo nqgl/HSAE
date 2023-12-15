@@ -10,7 +10,7 @@ ae = AutoEncoder.load(171, save_dir="/home/g/mats/sae/models-from-remote/")
 print(f"encoder_size:{ae.W_enc.shape}")
 print(f"decoder_size:{ae.W_dec.shape}")
 
-model = z_sae.get_model(ae.cfg)
+model = z_sae.get_model(ae.cfg0)
 
 decoder = ae.W_dec
 head_matricies = einops.rearrange(ae.W_dec, "d_dict (n_heads d_head) -> d_dict n_heads d_head", n_heads=8, d_head=64)

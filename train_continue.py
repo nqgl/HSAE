@@ -40,9 +40,9 @@ def main():
     # encoder.cfg.num_to_resample = 64
     # linspace_l1(encoder, 0.2)
 
-    buffer = Buffer(encoder.cfg, all_tokens, model=model)
+    buffer = Buffer(encoder.cfg0, all_tokens, model=model)
     buffer.skip_first_tokens_ratio(skip_ratio)
-    train_sae.train(encoder, encoder.cfg, buffer, model)
+    train_sae.train(encoder, encoder.cfg0, buffer, model)
 
 if __name__ == "__main__":
     main()

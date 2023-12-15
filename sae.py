@@ -18,96 +18,110 @@ from sae_config import AutoEncoderConfig
 from setup_utils import SAVE_DIR, DTYPES
 
 class AutoEncoder(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, cfg :AutoEncoderConfig):
         super().__init__()
-        d_dict = cfg.dict_size
-        l1_coeff = cfg.l1_coeff
         dtype = DTYPES[cfg.enc_dtype]
         torch.manual_seed(cfg.seed)
-        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(cfg.act_size, d_dict, dtype=dtype)))
-        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(d_dict, cfg.act_size, dtype=dtype)))
-        self.b_enc = nn.Parameter(torch.zeros(d_dict, dtype=dtype))
-        self.b_dec = nn.Parameter(torch.zeros(cfg.act_size, dtype=dtype))
+        
+        self.cfg0 = cfg      
 
+        self.b_dec = nn.Parameter(torch.zeros(cfg.d_data, dtype=dtype))
+        self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(cfg.d_data, cfg.d_dict, dtype=dtype)))
+        self.b_enc = nn.Parameter(torch.zeros(cfg.d_dict, dtype=dtype))
+        self.W_dec = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(cfg.d_dict, cfg.d_data, dtype=dtype)))
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
-        self.step_num = 0
-        self.d_dict = d_dict
-        self.l1_coeff = l1_coeff
-        self.acts_cached = None
-        self.l2_loss_cached = None
-        self.l1_loss_cached = None
-        self.l0_norm_cached = None
-        self.cfg = cfg      
-        self.to(cfg.device)
-        self.cached_acts = None
-        self.nonlinearity = novel_nonlinearities.cfg_to_nonlinearity(cfg)
-        self.activation_frequency = torch.zeros(self.d_dict, dtype=torch.float32).to(cfg.device)
-        self.steps_since_activation_frequency_reset = 0
-        self.to_be_reset = None
-        self.scaling_factor = cfg.data_rescale
-        self.std_dev_accumulation = 0
-        self.std_dev_accumulation_steps = 0
 
-    def encode(self, x, cache_acts = False, cache_l0 = False, record_activation_frequency = False, rescaling = False):
-        x = x * self.cfg.data_rescale
-        if rescaling:
-            self.update_scaling(x)
-        x = self.scale(x)
+        self.nonlinearity = novel_nonlinearities.cfg_to_nonlinearity(cfg)
+    
+
+        
+        self.to(cfg.device)
+        
+        # this is useful for implementing non-const l1 currently
+        self.l1_coeff = cfg.l1_coeff
+
+        # cached data fields
+        self.cached_l2_loss = None
+        self.cached_l1_loss = None
+        self.cached_l0_norm = None
+        self.cached_acts = None
+
+        # neuron reset fields
+        self.neuron_activation_frequency = torch.zeros(self.cfg0.d_dict, dtype=torch.float32).to(cfg.device)
+        self.steps_since_activation_frequency_reset = 0
+        self.neurons_to_be_reset = None
+        
+        # rescaling fields
+        self.scaling_factor = nn.Parameter(torch.tensor(self.cfg0.data_rescale), requires_grad=False)
+        self.std_dev_accumulation = nn.Parameter(torch.zeros(1), requires_grad=False)
+        self.std_dev_accumulation_steps = nn.Parameter(torch.zeros(1), requires_grad=False)
+        
+        self.step_num = 0
+
+    def encode(self, x, cache_acts = False, cache_l0 = False, record_activation_frequency = False):
+        if self.cfg0.scale_in_forward:
+            x = self.scale(x)
         x_cent = x - self.b_dec
-        # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
+
+        self.cached_l1_loss = acts.float().abs().mean(dim=(-2))
+        self.cached_l0_norm = (acts > 0).float().sum(dim=-1).mean() if cache_l0 else None
+        self.cached_l0_norm = torch.count_nonzero(acts, dim=-1).float().mean() if cache_l0 else None
+        self.cached_acts = acts if cache_acts else None
+
+        if record_activation_frequency:
+            activated = torch.mean((acts > 0).float(), dim=0)
+            activated = torch.count_nonzero(acts, dim=0) / acts.shape[0]
+            self.neuron_activation_frequency = activated + self.neuron_activation_frequency.detach()
+            self.steps_since_activation_frequency_reset += 1
+
         return acts
+    
+    def decode(self, acts):
+        
+        x_reconstruct = acts @ self.W_dec + self.b_dec
+        if self.cfg0.scale_in_forward:
+            return self.unscale(x_reconstruct)
+        else:
+            return x_reconstruct
+
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, rescaling = False):
-        x = x * self.cfg.data_rescale
         if rescaling:
             self.update_scaling(x)
-        
-        x = self.scale(x)
-        x_cent = x - self.b_dec
-        # print(x_cent.dtype, x.dtype, self.W_dec.dtype, self.b_dec.dtype)
-        acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
-        x_reconstruct = acts @ self.W_dec + self.b_dec
-        # self.l2_loss_cached = (x_reconstruct.float() - x.float()).pow(2).mean(-1).mean(0)
-        x_diff = x_reconstruct.float() - x.float()
-        # self.re_init_neurons(x_diff)
-        self.l1_loss_cached = acts.float().abs().mean(dim=(-2))
-        self.l2_loss_cached = (x_diff).pow(2).mean(-1).mean(0)
+    
+        acts = self.encode(x, cache_acts=cache_acts, cache_l0=cache_l0, record_activation_frequency=record_activation_frequency)
 
-        self.l0_norm_cached = (acts > 0).float().sum(dim=-1).mean() if cache_l0 else None
-        self.cached_acts = acts if cache_acts else None
-        if record_activation_frequency:
-            # print(acts.shape)
-            activated = torch.mean((acts > 0).float(), dim=0)
-            # print("activated shape", activated.shape)
-            # print("freq shape", self.activation_frequency.shape)
-            self.activation_frequency = activated + self.activation_frequency.detach()
-            self.steps_since_activation_frequency_reset += 1
-        return self.unscale(x_reconstruct) / self.cfg.data_rescale
+        x_reconstruct = self.decode(acts)
+
+        x_diff = x_reconstruct.float() - x.float()
+
+        self.cached_l2_loss = (self.scale(x_diff)).pow(2).mean(-1).mean(0)
+
+        return x_reconstruct
     
 
 
     def get_loss(self):
-        self.step_num += 1
-        if self.cfg.cosine_l1 is None:
+        if self.cfg0.cosine_l1 is None:
             l1_coeff = self.l1_coeff
         else:
-            c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
+            self.step_num += 1
+            c_period, c_range = self.cfg0.cosine_l1["period"], self.cfg0.cosine_l1["range"]
             l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
 
-        l2 = torch.mean(self.l2_loss_cached)
-        l1 = torch.sum(l1_coeff * self.l1_loss_cached)
+        l2 = torch.mean(self.cached_l2_loss)
+        l1 = torch.sum(l1_coeff * self.cached_l1_loss)
         return l1 + l2
 
     @torch.no_grad()
     def update_scaling(self, x :torch.Tensor):
         x_cent = x - x.mean(dim=0)
-        # var = (x_cent ** 2).sum(dim=-1)
-        # std = torch.sqrt(var).mean()
-        std = x_cent.norm(dim=-1).mean()
+        var = x_cent.norm(dim=-1).pow(2).mean()
+        std = torch.sqrt(var)
         self.std_dev_accumulation += std #x_cent.std(dim=0).mean() is p diferent I believe
         self.std_dev_accumulation_steps += 1
-        self.scaling_factor = self.std_dev_accumulation / self.std_dev_accumulation_steps
+        self.scaling_factor = self.std_dev_accumulation / self.std_dev_accumulation_steps / self.cfg0.data_rescale
 
     @torch.no_grad()
     def scale(self, x):
@@ -121,22 +135,44 @@ class AutoEncoder(nn.Module):
     @torch.no_grad()
     def neurons_to_reset(self, to_be_reset :torch.Tensor):
         if to_be_reset.sum() > 0:
-            self.to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
+            self.neurons_to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
             w_enc_norms = self.W_enc[:, ~ to_be_reset].norm(dim=0)
             # print("w_enc_norms", w_enc_norms.shape)
             # print("to_be_reset", self.to_be_reset.sum())
             self.alive_norm_along_feature_axis = torch.mean(torch.mean(w_enc_norms))
         else:
-            self.to_be_reset = None
+            self.neurons_to_be_reset = None
     
     @torch.no_grad()
     def re_init_neurons(self, x_diff):
-        self.re_init_neurons_gram_shmidt_precise_topk(x_diff)
+        self.re_init_neurons_gram_shmidt_precise_iterative_argmax(x_diff)
+
+    @torch.no_grad()
+    def re_init_neurons_gram_shmidt_precise_iterative_argmax(self, x_diff):
+        n_reset = min(x_diff.shape[0], self.cfg0.d_data // 2, self.cfg0.num_to_resample)
+        v_orth = torch.zeros_like(x_diff)
+        n_succesfully_reset = n_reset
+        for i in range(n_reset):
+            magnitudes = x_diff.norm(dim=-1)
+            i_max = torch.argmax(magnitudes)
+            v_orth[i] = x_diff[i_max]
+            for j in range(max(0, i - self.cfg0.gram_shmidt_trail), i):
+                v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
+            if v_orth[i].norm() < 1e-6:
+                n_succesfully_reset = i
+                break
+            v_orth[i] = F.normalize(v_orth[i], dim=-1)
+            x_diff -= (x_diff @ v_orth[i]).unsqueeze(1) * v_orth[i] / torch.dot(v_orth[i], v_orth[i])
+            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
+            # # print(v_.shape)
+            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
+        self.reset_neurons(v_orth[:n_succesfully_reset])
+
 
     @torch.no_grad()
     def re_init_neurons_gram_shmidt_precise_topk(self, x_diff):
-        t = self.cfg.gram_shmidt_trail
-        n_reset = min(x_diff.shape[0], self.cfg.act_size // 2, self.cfg.num_to_resample)
+        t = self.cfg0.gram_shmidt_trail
+        n_reset = min(x_diff.shape[0], self.cfg0.d_data // 2, self.cfg0.num_to_resample)
         v_orth = torch.zeros_like(x_diff)
         # print(x_diff.shape)
         # v_orth[0] = F.normalize(x_diff[0], dim=-1)
@@ -161,8 +197,8 @@ class AutoEncoder(nn.Module):
     
     @torch.no_grad()
     def re_init_neurons_gram_shmidt_precise(self, x_diff):
-        t = self.cfg.gram_shmidt_trail
-        n_reset = min(x_diff.shape[0], self.cfg.act_size // 2, self.cfg.num_to_resample)
+        t = self.cfg0.gram_shmidt_trail
+        n_reset = min(x_diff.shape[0], self.cfg0.d_data // 2, self.cfg0.num_to_resample)
         v_orth = torch.zeros_like(x_diff)
         # print(x_diff.shape)
         # v_orth[0] = F.normalize(x_diff[0], dim=-1)
@@ -182,13 +218,13 @@ class AutoEncoder(nn.Module):
 
     @torch.no_grad()
     def reset_neurons(self, new_directions :torch.Tensor, norm_encoder_proportional_to_alive = True):
-        if new_directions.shape[0] > self.to_be_reset.shape[0]:
-            new_directions = new_directions[:self.to_be_reset.shape[0]]
+        if new_directions.shape[0] > self.neurons_to_be_reset.shape[0]:
+            new_directions = new_directions[:self.neurons_to_be_reset.shape[0]]
         num_resets = new_directions.shape[0]
-        to_reset = self.to_be_reset[:num_resets]
-        self.to_be_reset = self.to_be_reset[num_resets:]
-        if self.to_be_reset.shape[0] == 0:
-            self.to_be_reset = None
+        to_reset = self.neurons_to_be_reset[:num_resets]
+        self.neurons_to_be_reset = self.neurons_to_be_reset[num_resets:]
+        if self.neurons_to_be_reset.shape[0] == 0:
+            self.neurons_to_be_reset = None
         new_directions = new_directions / new_directions.norm(dim=-1, keepdim=True)
         print(f"to_reset shape", to_reset.shape)
         print(f"new_directions shape", new_directions.shape)
@@ -204,7 +240,7 @@ class AutoEncoder(nn.Module):
 
     @torch.no_grad()
     def reset_activation_frequencies(self):
-        self.activation_frequency[:] = 0
+        self.neuron_activation_frequency[:] = 0
         self.steps_since_activation_frequency_reset = 0
 
 
@@ -228,7 +264,7 @@ class AutoEncoder(nn.Module):
         version = self.get_version()
         torch.save(self.state_dict(), SAVE_DIR/(str(version)+ "_" + name + ".pt"))
         with open(SAVE_DIR/(str(version)+ "_" + name + "_cfg.json"), "w") as f:
-            json.dump(asdict(self.cfg), f)
+            json.dump(asdict(self.cfg0), f)
         print("Saved as version", version)
 
     @classmethod

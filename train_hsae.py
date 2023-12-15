@@ -1,20 +1,21 @@
 from buffer import Buffer
 from sae import AutoEncoder, AutoEncoderConfig
+from hsae import HierarchicalAutoEncoder, HierarchicalAutoEncoderConfig
 from setup_utils import get_model, load_data
 from calculations_on_sae import get_recons_loss
 from transformer_lens import HookedTransformer
-
+import asdict
 import wandb
 import tqdm
 import torch
 import time
 
-def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :Buffer, model :HookedTransformer):
+def train(encoder :HierarchicalAutoEncoder, cfg :AutoEncoderConfig, buffer :Buffer, model :HookedTransformer):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
     # buffer.freshen_buffer(fresh_factor=0.5)
     try:
-        run = wandb.init(project="autoencoders", entity="sae_all", config=cfg)
+        run = wandb.init(project="hsae", entity="hsae_all", config=cfg)
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
 
         num_batches = cfg.num_tokens // cfg.batch_size
@@ -56,6 +57,14 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :Buffer, model :H
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
+                for i in range(len(encoder.saes)):
+                    l1_loss = encoder.saes[i].cached_l1_loss
+                    l0_norm = encoder.saes[i].cached_l0_norm
+                    wandb.log(
+                        {   f"SAE_{i + 1} l1_loss": l1_loss.sum().item(), 
+                            f"SAE_{i + 1} l0_norm": l0_norm.item()
+                        }
+                    )
             if (i) % 5000 == 0:
                 x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=1))
                 print("Reconstruction:", x)
@@ -95,10 +104,11 @@ def linspace_l1(ae, l1_radius):
     l1 = torch.linspace(cfg.l1_coeff * (1 - l1_radius), cfg.l1_coeff * (1 + l1_radius), cfg.dict_size, device=cfg.device)
     ae.l1_coeff = l1
     
-cfg = AutoEncoderConfig(site="resid_pre", d_data=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
+cfg = HierarchicalAutoEncoderConfig(site="resid_pre", d_data=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
                                 l1_coeff=35e-5, dict_mult=2, batch_size=1024, beta2=0.999, subshuffle=16,
                                 nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 16 * 7, buffer_refresh_ratio=0.25,
-                                lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                lr=1e-4,
+                                ) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
     # ae_cfg = AutoEncoderConfig(site="z", act_size=768, layer=1, model_name="gpt2-small",
@@ -113,7 +123,9 @@ def main():
     # cfg = sae.post_init_cfg(ae_cfg)
     model = get_model(cfg)
     all_tokens = load_data(model)
-    encoder = AutoEncoder(cfg)
+    # sae = AutoEncoder.load_latest()
+    encoder = HierarchicalAutoEncoder(cfg)
+
     # linspace_l1(encoder, 0.2)
     # dataloader, buffer = buffer_dataset.get_dataloader(cfg, all_tokens, model=model, device=torch.device("cpu"))
     # print(buffer.device)

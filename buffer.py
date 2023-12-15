@@ -48,7 +48,7 @@ class Buffer():
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos n_head d_head -> (batch seq_pos) (n_head d_head)")
                 else:
                     acts = einops.rearrange(cache[self.cfg.act_name], "batch seq_pos d_act -> (batch seq_pos) d_act")
-                assert acts.shape[-1] == self.cfg.act_size
+                assert acts.shape[-1] == self.cfg.d_data
                 self.buffer[self.pointer: self.pointer+acts.shape[0]] = acts
                 self.pointer += acts.shape[0]
                 self.token_pointer += self.cfg.model_batch_size
