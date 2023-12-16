@@ -105,9 +105,9 @@ def linspace_l1(ae, l1_radius):
     ae.l1_coeff = l1
     
 cfg = HierarchicalAutoEncoderConfig(site="resid_pre", d_data=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
-                                l1_coeff=35e-5, dict_mult=2, batch_size=128, beta2=0.999,
-                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 8 * 2, buffer_refresh_ratio=0.5000,
-                                lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
+                                l1_coeff=35e-5, dict_mult=2, batch_size=128, beta2=0.999, 
+                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128, buffer_refresh_ratio=0.5000,
+                                lr=1e-4, features_per_sae_per_layer=[None, 4]) #original 3e-4 8e-4 or same but 1e-3 on l1
 
 def main():
     # cfg = sae.post_init_cfg(ae_cfg)
