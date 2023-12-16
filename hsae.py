@@ -160,7 +160,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         # print("flat_indices", flat_indices.shape)
         batch_idxs = flat_indices[0]
         sae_idxs = flat_indices[1]
-        x_flat = x[gate].unsqueeze(-2)
+        x_flat = x[dgate].unsqueeze(-2)
 
         W_enc_flat = self.W_enc[sae_idxs]
         b_enc_flat = self.b_enc[sae_idxs].unsqueeze(-2)
