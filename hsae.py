@@ -1,4 +1,6 @@
 import novel_nonlinearities
+from hsae_config import HierarchicalAutoEncoderConfig, HierarchicalAutoEncoderLayerConfig
+from setup_utils import SAVE_DIR, DTYPES
 
 import torch
 import torch.nn as nn
@@ -12,8 +14,7 @@ from collections import namedtuple
 from dataclasses import asdict
 from typing import Tuple, Callable, Optional
 from sae import AutoEncoder, AutoEncoderConfig
-from hsae_config import HierarchicalAutoEncoderConfig, HierarchicalAutoEncoderLayerConfig
-from setup_utils import SAVE_DIR, DTYPES
+
 
 
 class HierarchicalAutoEncoder(nn.Module):
@@ -39,7 +40,7 @@ class HierarchicalAutoEncoder(nn.Module):
         for sae in self.saes:
             x_ = x if not self.cfg.sublayers_train_on_error else x - x_n
             gate = self.gate(acts)
-            x_n += sae(x_, gate) #we should just store acts to a class var at default prob
+            x_n = x_n + sae(x_, gate) #we should just store acts to a class var at default prob
             acts = sae.cached_acts
             self.cached_l1_loss += sae.cached_l1_loss
         self.cached_l2_loss = (x - x_n) ** 2
@@ -61,7 +62,8 @@ class HierarchicalAutoEncoder(nn.Module):
             sae.make_decoder_weights_and_grad_unit_norm()
 
     def get_loss(self):
-        l = self.sae_0.get_loss()
+        l = self.cached_l2_loss.mean()
+        l += (self.sae_0.cached_l1_loss).sum(-1).mean() * self.sae_0.cfg0.l1_coeff
         for sae in self.saes:
             l += sae.get_loss()
         return l
@@ -110,7 +112,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
                     dtype=dtype
                 )
             )
-            )
+        )
         
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
@@ -133,10 +135,13 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         return acts
 
     def decode_flat(self, acts, W_dec, b_dec):
-        print("acts shape:", acts.shape)
-        print("W_dec shape:", W_dec.shape)
-        print("b_dec shape:", b_dec.shape)
-        return acts @ W_dec + b_dec
+        # print("acts shape:", acts.shape)
+        # print("W_dec shape:", W_dec.shape)
+        # print("b_dec shape:", b_dec.shape)
+        m =  acts @ W_dec
+        o = m + b_dec
+        # print(m.shape, o.shape)
+        return o
             
 
 
@@ -157,27 +162,27 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         sae_idxs = flat_indices[1]
         x_flat = x[batch_idxs].unsqueeze(-2)
 
-        W_enc = self.W_enc[sae_idxs]
-        b_enc = self.b_enc[sae_idxs].unsqueeze(-2)
-        W_dec = self.W_dec[sae_idxs]
-        b_dec = self.b_dec[sae_idxs].unsqueeze(-2)
+        W_enc_flat = self.W_enc[sae_idxs]
+        b_enc_flat = self.b_enc[sae_idxs].unsqueeze(-2)
+        W_dec_flat = self.W_dec[sae_idxs]
+        b_dec_flat = self.b_dec[sae_idxs].unsqueeze(-2)
         # print(W_enc.shape, b_enc.shape, W_dec.shape, b_dec.shape)
         # print(self.W_enc.shape, self.b_enc.shape, self.W_dec.shape, self.b_dec.shape)
         # print("x_flat", x_flat.shape)
-        flat_acts = self.encode_flat(x=x_flat, W_enc=W_enc, b_dec=b_dec, b_enc=b_enc)
+        flat_acts = self.encode_flat(x=x_flat, W_enc=W_enc_flat, b_dec=b_dec_flat, b_enc=b_enc_flat)
         # print("flat_acts", flat_acts.shape)
 
-        acts = torch.zeros(batches, self.cfg.n_sae, self.cfg.d_dict, device=self.cfg0.device)
+        feat_acts = torch.zeros(batches, self.cfg.n_sae, self.cfg.d_dict, device=self.cfg0.device)
         # acts = acts.scatter_add(
         #     0, 
         #     flat_indices.unsqueeze(-1).unsqueeze(-1).expand(2, -1, self.cfg.n_sae, self.cfg.d_dict), 
         #     flat_acts.reshape(-1, 1, self.cfg.d_dict)
         # )
-        acts[flat_indices] = flat_acts
+        # acts[flat_indices] = flat_acts
         # print(acts.shape, flat_acts.shape)
-        self.cache(acts)
+        self.cache(feat_acts)
         # flat_acts = flat_acts * dgate[flat_indices]
-        saes_out_flat = self.decode_flat(flat_acts, W_dec=W_dec, b_dec=b_dec)
+        saes_out_flat = self.decode_flat(flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat)
         # print("saes_out_flat", saes_out_flat.shape)
 
         x_out = torch.scatter_add(
@@ -188,6 +193,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         )
 
         # x_reconstruct = self.unscale(x_out)
+        # print("x_out sum", x_out.sum())
         return x_out
         
 
@@ -223,12 +229,12 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
 
 
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def scale(self, x):
         raise Exception("lower-level layer getting scaled")
         return x / self.scaling_factor
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def unscale(self, x):
         raise Exception("lower-level layer getting scaled")
         return x * self.scaling_factor

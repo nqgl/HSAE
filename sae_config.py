@@ -50,7 +50,7 @@ class AutoEncoderConfig: #TODO some of these types are wrong. possibly some fiel
     gram_shmidt_trail :int = 5000
     num_to_resample :int = 128
     # rescaling
-    data_rescale :float = 1.0
+    data_rescale :float = 10
     scale_in_forward :bool = True
 
     # bookkeeping

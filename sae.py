@@ -82,8 +82,7 @@ class AutoEncoder(nn.Module):
         x_reconstruct = acts @ self.W_dec + self.b_dec
         if self.cfg0.scale_in_forward:
             return self.unscale(x_reconstruct)
-        else:
-            return x_reconstruct
+        return x_reconstruct
 
 
     def forward(self, x, cache_l0 = True, cache_acts = False, record_activation_frequency = False, rescaling = False):
@@ -123,11 +122,11 @@ class AutoEncoder(nn.Module):
         self.std_dev_accumulation_steps += 1
         self.scaling_factor.data[:] = self.std_dev_accumulation / self.std_dev_accumulation_steps / self.cfg0.data_rescale
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def scale(self, x):
         return x / self.scaling_factor
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def unscale(self, x):
         return x * self.scaling_factor
 
@@ -159,7 +158,7 @@ class AutoEncoder(nn.Module):
             for j in range(max(0, i - self.cfg0.gram_shmidt_trail), i):
                 v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
             if v_orth[i].norm() < 1e-6:
-                n_succesfully_reset = i
+                n_succesfulselfly_reset = i
                 break
             v_orth[i] = F.normalize(v_orth[i], dim=-1)
             x_diff -= (x_diff @ v_orth[i]).unsqueeze(1) * v_orth[i] / torch.dot(v_orth[i], v_orth[i])

@@ -54,7 +54,6 @@ class HierarchicalAutoEncoderLayerConfig():
     # normal params
     nonlinearity :tuple = ("relu", {})
     num_to_resample :int = 128
-    data_rescale :float = 1.0
     ## lr params
     lr :int = 3e-4
     l1_coeff :Union[float, List[float]] = 8e-4
