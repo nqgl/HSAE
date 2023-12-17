@@ -14,8 +14,8 @@ from collections import namedtuple
 from dataclasses import asdict
 from typing import Tuple, Callable, Optional
 from sae import AutoEncoder, AutoEncoderConfig
-
-
+import torch_sparse
+import torchsparsegradutils as tsgu
 
 class HierarchicalAutoEncoder(nn.Module):
     def __init__(self, cfg :HierarchicalAutoEncoderConfig, sae0 :Optional[AutoEncoder] = None):
@@ -25,8 +25,9 @@ class HierarchicalAutoEncoder(nn.Module):
                 HierarchicalAutoEncoderLayer(cfg = layer_cfg, cfg_0=cfg)
             for layer_cfg in cfg.sublayer_cfgs)
         self.cfg = cfg
+        self.neurons_to_be_reset = None
 
-    def forward(self, x, rescaling=False, record_activation_frequency=False):
+    def forward(self, x, rescaling=False, record_activation_frequency=False, dense=True):
         if rescaling:
             self.sae_0.update_scaling(x)
         x = self.sae_0.scale(x)
@@ -37,10 +38,14 @@ class HierarchicalAutoEncoder(nn.Module):
         x_n = x_0
         acts = self.sae_0.cached_acts
         self.cached_l1_loss = self.sae_0.cached_l1_loss
+        # print("x_0", x_0.shape)
         for sae in self.saes:
             x_ = x if not self.cfg.sublayers_train_on_error else x - x_n
             gate = self.gate(acts)
-            x_n = x_n + sae(x_, gate) #we should just store acts to a class var at default prob
+            x_next = sae(x_, gate, dense=dense)
+            # print("x_next", x_next.shape)
+            # print("x_n", x_n.shape)
+            x_n = x_n + x_next #we should just store acts to a class var at default prob
             acts = sae.cached_acts
             self.cached_l1_loss += sae.cached_l1_loss
         self.cached_l2_loss = (x - x_n) ** 2
@@ -87,9 +92,9 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         self.W_enc = nn.Parameter(
             torch.nn.init.kaiming_uniform_(
                 torch.empty(
-                    self.cfg.n_sae, 
-                    self.cfg0.d_data, 
-                    self.cfg.d_dict, 
+                    self.cfg.n_sae,
+                    self.cfg0.d_data,
+                    self.cfg.d_dict,
                     dtype=dtype
                 )
             )
@@ -107,8 +112,8 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             torch.nn.init.kaiming_uniform_(
                 torch.empty(
                     self.cfg.n_sae,
-                    self.cfg.d_dict, 
-                    self.cfg0.d_data, 
+                    self.cfg.d_dict,
+                    self.cfg0.d_data,
                     dtype=dtype
                 )
             )
@@ -126,6 +131,8 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         # x = x.reshape(-1, 1, self.cfg0.d_data)
         x_cent = x - b_dec
         # x_cent = x_cent.unsqueeze(-2)
+        # print("\nmult", x_cent.shape, W_enc.shape)
+        # input()
         m = x_cent @ W_enc
         acts = self.nonlinearity(m + b_enc)
 
@@ -133,6 +140,8 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         # print("m", m.shape)
         # print("acts", acts.shape)
         return acts
+
+
 
     def decode_flat(self, acts, W_dec, b_dec):
         # print("acts shape:", acts.shape)
@@ -146,9 +155,304 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
 
 
 
+    def forward(self, x: torch.Tensor, gate: torch.Tensor, dense=True):
+        return self.ad_hoc_sparse2(x, gate)
+        if dense:
+            return self.dense(x, gate)
+        else:
+            print("sparse", x.shape)
+            return self.ad_hoc_sparse(x, gate)
+    
 
 
-    def forward(self, x: torch.Tensor, gate: torch.Tensor):
+    def dense(self, x: torch.Tensor, gate: torch.Tensor):
+        # x: (batches, d_data)
+        # gate: (batches, n_sae)
+
+        x = x.unsqueeze(-2).unsqueeze(-2) # b 1 1 d_data
+        b_dec = self.b_dec.unsqueeze(-2) # n_sae 1 d_data
+        # x: b, n_sae, 1 d_data
+        W_enc = self.W_enc # n_sae d_data d_dict
+        # x: b, n_sae, 1 d_dict
+        b_enc = self.b_enc.unsqueeze(-2) # n_sae 1 d_dict
+        # x: b, n_sae, 1, d_dict
+        W_dec = self.W_dec # n_sae d_dict d_data
+        # x: b, n_sae, 1, d_data
+        # print("layer parts", b_dec.shape, W_enc.shape, b_enc.shape, W_dec.shape)
+        # print("x", x.shape)
+        acts = self.encode_flat(x=x, W_enc=W_enc, b_dec=b_dec, b_enc=b_enc)
+        # print("acts", acts.shape)
+        self.cache(acts)
+        saes_out = self.decode_flat(acts, W_dec=W_dec, b_dec=b_dec)
+        # print("saes_out", saes_out.shape)
+        saes_out = saes_out * gate.unsqueeze(-1).unsqueeze(-1)
+        return saes_out.sum(dim=-2).sum(dim=-2)
+    
+
+    def sparse(self, x: torch.Tensor, gate: torch.Tensor):
+        # x: (batches, d_data)
+        # gate: (batches, n_sae)
+        batch = x.shape[0]
+        d_data = self.cfg0.d_data
+        d_dict = self.cfg.d_dict
+        sgate = gate.to_sparse().unsqueeze(-1).unsqueeze(-1)
+        x = sgate * x.unsqueeze(-2).unsqueeze(-2) # b 1 1 d_data
+        b_dec = (sgate * self.b_dec.unsqueeze(-2)).view(-1, 1, d_data) # n_sae 1 d_data
+        # x: b, n_sae, 1 d_data
+        W_enc = (sgate * self.W_enc).view(-1, d_data, d_dict) # n_sae d_data d_dict
+        # x: b, n_sae, 1 d_dict
+        b_enc = (sgate * self.b_enc.unsqueeze(-2), d_data, d_dict) # n_sae 1 d_dict
+        # x: b, n_sae, 1, d_dict
+        W_dec = (sgate * self.W_dec) # n_sae d_dict d_data
+        print("sparse?", W_dec.is_sparse)
+        # x: b, n_sae, 1, d_data
+        # print("layer parts", b_dec.shape, W_enc.shape, b_enc.shape, W_dec.shape)
+        # print("x", x.shape)
+        acts = self.encode_sparse(x=x, W_enc=W_enc, b_dec=b_dec, b_enc=b_enc)
+        # print("acts", acts.shape)
+        self.cache(acts)
+        saes_out = self.decode_sparse(acts, W_dec=W_dec, b_dec=b_dec)
+        # print("saes_out", saes_out.shape)
+        saes_out = saes_out * gate.unsqueeze(-1).unsqueeze(-1)
+        return saes_out.sum(dim=-2).sum(dim=-2)
+
+
+    def encode_sparse(self, x, W_enc, b_dec, b_enc, cache_acts=False, cache_l0=False, record_activation_frequency=False):
+        x_cent = x - b_dec
+        m = torch.sparse.mm(x, self.W_enc)
+        acts = self.nonlinearity(m + b_enc)
+
+        return acts
+    def decode_sparse(self, acts, W_dec, b_dec):
+        m = torch.sparse.mm(acts, W_dec)
+        o = m + b_dec
+        return o
+
+    def sparse2(self, x: torch.Tensor, gate: torch.Tensor):
+        # x: (batches, d_data)
+        # gate: (batches, n_sae)
+        batch = x.shape[0]
+        d_data = self.cfg0.d_data
+        d_dict = self.cfg.d_dict
+        sgate = gate.to_sparse().unsqueeze(-1).unsqueeze(-1)
+        
+        x = x.unsqueeze(-2).unsqueeze(-2)                           # b 1 1 d_data
+        
+        b_dec = (sgate * self.b_dec).reshape(-1, 1, d_data)            # n_sae 1 d_data
+
+        x_cent = x - b_dec                                          # b n_sae 1 d_data
+        x_cent = x_cent.view(-1, 1, d_data)                         # b*n_sae 1 d_data
+        # x_cent_t = x_cent.transpose(-2, -1)                         # d_data b*n_sae
+
+        W_enc = (sgate * self.W_enc).view(-1, d_data, d_dict)       # b*n_sae d_data d_dict
+        # W_enc = W_enc.transpose(-2, -1)                             # b*n_sae d_dict d_data
+        
+
+        pre_acts = torch_sparse.spspmm(x_cent.indices(), x_cent.values(), W_enc.indices(), W_enc.values())  # b*n_sae d_dict
+        # x: b, n_sae, 1 d_dict
+        b_enc = (sgate * self.b_enc) # n_sae 1 d_dict
+        # x: b, n_sae, 1, d_dict
+        W_dec = (sgate * self.W_dec).view(-1, d_data, d_dict) #b n_sae d_dict d_data
+        print("sparse?", W_dec.is_sparse)
+        # x: b, n_sae, 1, d_data
+        # print("layer parts", b_dec.shape, W_enc.shape, b_enc.shape, W_dec.shape)
+        # print("x", x.shape)
+        acts = self.encode_sparse(x=x, W_enc=W_enc, b_dec=b_dec, b_enc=b_enc)
+        # print("acts", acts.shape)
+        self.cache(acts)
+        saes_out = self.decode_sparse(acts, W_dec=W_dec, b_dec=b_dec)
+        # print("saes_out", saes_out.shape)
+        saes_out = saes_out * gate.unsqueeze(-1).unsqueeze(-1)
+        return saes_out.sum(dim=-2).sum(dim=-2)
+
+
+    def sparse6(self, x, gate):
+        # Reshape and sparse operations
+        n_sae = self.cfg.n_sae
+        batch = x.shape[0]
+        d_data = self.cfg0.d_data
+        d_dict = self.cfg.d_dict
+
+        gate = gate.transpose(-1, -2).unsqueeze(-1)
+        sgate = gate.to_sparse() # n_sae B 1
+        x_cent = x.unsqueeze(-2) - self.b_dec # B n_sae d_data
+        x_cent_gated = x_cent.transpose(0, 1) * gate # n_sae B d_data
+        x_cent_gated = x_cent_gated.to_sparse(2)
+        W_enc = self.W_enc# n_sae B d_data d_dict
+        b_enc = self.b_enc # n_sae d_dict
+        print("x_cent", x_cent.shape)
+        print("W_enc", W_enc.shape, W_enc.is_sparse)
+        print("b_enc", b_enc.shape)
+        print("sgate", sgate.shape)
+        print("x_cent_gated", x_cent_gated.shape, x_cent_gated.is_sparse, x_cent_gated.dense_dim(), x_cent_gated.sparse_dim())
+        m = torch.sparse.mm(
+                x_cent_gated,
+                W_enc
+            )
+        b = b_enc.unsqueeze(-2) * gate
+
+        print("m", m.shape, m.is_sparse)
+        print("b", b.shape, b.is_sparse)
+        acts = self.nonlinearity(
+            m
+            + b
+        )
+        self.cache(acts)
+        print("acts", acts.is_sparse)
+
+        print(f"acts @ self.W_dec {acts.shape} @ {self.W_dec.shape}")
+        m = tsgu.sparse_mm(acts * sgate, self.W_dec) 
+        print(m.shape, self.b_dec.shape, gate.shape)
+        out = m + self.b_dec.unsqueeze(-2) * gate
+
+        print("out", out.shape)
+        print(out.is_sparse)
+        return out.sum(dim=0).squeeze()
+
+
+
+    def sparse5(self, x, gate):
+        # Reshape and sparse operations
+        n_sae = self.cfg.n_sae
+        batch = x.shape[0]
+        d_data = self.cfg0.d_data
+        d_dict = self.cfg.d_dict
+
+
+        gate_flat = gate.view(-1, 1)
+        sgate = gate_flat.to_sparse()
+        x_cent = x.unsqueeze(-2) - self.b_dec
+        x_cent_gated = x_cent.view(batch * n_sae, -1) * sgate
+        W_enc = self.W_enc
+        W_enc = torch.cat([W_enc] * batch, dim=0)
+        b_enc = self.b_enc
+        print("x_cent", x_cent.shape)
+        print("W_enc", W_enc.shape)
+        print("b_enc", b_enc.shape)
+        print("sgate", sgate.shape)
+        print("x_cent_gated", x_cent_gated.shape)
+        acts = self.nonlinearity(
+            torch.sparse.mm(
+                x_cent_gated,
+                W_enc
+            )
+            + b_enc * gate
+        )
+
+
+
+    def sparse4(self, x, gate):
+        # Reshape and sparse operations
+        n_sae = self.cfg.n_sae
+        batch = x.shape[0]
+        d_data = self.cfg0.d_data
+        d_dict = self.cfg.d_dict
+
+        gate_expanded = gate.unsqueeze(-1).unsqueeze(-1)
+        sgate = gate_expanded.to_sparse()
+        x_cent = x.unsqueeze(-2).unsqueeze(-2) - self.b_dec.unsqueeze(-2)
+        W_enc = self.W_enc.unsqueeze(0)
+        b_enc = self.b_enc.unsqueeze(-2).unsqueeze(0)
+        print("x_cent", x_cent.shape)
+        print("W_enc", W_enc.shape)
+        print("b_enc", b_enc.shape)
+        print("sgate", sgate.shape)
+        acts = self.nonlinearity(
+            torch.sparse.mm(
+                x_cent * sgate, 
+                W_enc)
+            + b_enc * sgate
+        )
+
+
+
+    def sparse3(self, x, gate):
+        # Reshape and sparse operations
+        n_sae = self.cfg.n_sae
+        batch = x.shape[0]
+        d_data = self.cfg0.d_data
+        d_dict = self.cfg.d_dict
+
+        gate_expanded = gate.unsqueeze(-1).unsqueeze(-1)  # New shape: (B, n, 1, 1)
+        sparse_gate = gate_expanded.to_sparse()
+
+        # Compute acts
+        x_expanded = x.unsqueeze(1).expand(batch, n_sae, d_data)  # Shape: (B, n, d_data)
+        x_weighted = x_expanded - self.b_dec
+        W_enc_weighted = self.W_enc * sparse_gate
+        acts = F.relu(torch.matmul(x_weighted, W_enc_weighted) + self.b_enc)
+
+        # Compute n_outs and outs
+        W_dec_weighted = self.W_dec * sparse_gate
+        n_outs = torch.matmul(acts, W_dec_weighted) + self.b_dec * sparse_gate
+        outs = n_outs.sum(dim=1).squeeze()
+
+        return outs
+
+
+
+
+    def ad_hoc_sparse2(self, x: torch.Tensor, gate: torch.Tensor):
+        # x: (batches, d_data)
+        # gate: (batches, n_sae)
+        x_dumb_shape = x.shape
+        if len(x_dumb_shape) > 2:
+            x = x.reshape(-1, x_dumb_shape[-1])
+            gate = gate.reshape(-1, gate.shape[-1])
+        batches = x.shape[0]
+
+        # x = self.scale(x)
+        gate = gate.unsqueeze(-1).unsqueeze(-1).transpose(0,1)
+        dgate = gate
+        # gate = gate.to_sparse()
+        # print("flat_indices", flat_indices.shape)
+        # if flat_indices.shape[1]/batches > 100:
+        #     newgate = torch.zeros(batches, self.cfg.n_sae, device=self.cfg0.device)
+        #     torch.multinomial(
+        x_s = (x.unsqueeze(-2) * gate).to_sparse(2)
+        flat_indices = x_s.indices()
+        batch_idxs = flat_indices[0]
+        sae_idxs = flat_indices[1]
+
+        x_flat = x_s.values()
+
+        W_enc_flat = self.W_enc[sae_idxs]
+        b_enc_flat = self.b_enc[sae_idxs].unsqueeze(-2)
+        W_dec_flat = self.W_dec[sae_idxs]
+        b_dec_flat = self.b_dec[sae_idxs].unsqueeze(-2)
+        # print(W_enc.shape, b_enc.shape, W_dec.shape, b_dec.shape)
+        # print(self.W_enc.shape, self.b_enc.shape, self.W_dec.shape, self.b_dec.shape)
+        # print("x_flat", x_flat.shape)
+        flat_acts = self.encode_flat(x=x_flat, W_enc=W_enc_flat, b_dec=b_dec_flat, b_enc=b_enc_flat)
+        # print("flat_acts", flat_acts.shape)
+
+        feat_acts = torch.zeros(batches, self.cfg.n_sae, self.cfg.d_dict, device=self.cfg0.device)
+        # acts = acts.scatter_add(
+        #     0, 
+        #     flat_indices.unsqueeze(-1).unsqueeze(-1).expand(2, -1, self.cfg.n_sae, self.cfg.d_dict), 
+        #     flat_acts.reshape(-1, 1, self.cfg.d_dict)
+        # )
+        # acts[flat_indices] = flat_acts
+        # print(acts.shape, flat_acts.shape)
+        self.cache(feat_acts)
+        # flat_acts = flat_acts * dgate[flat_indices]
+        saes_out_flat = self.decode_flat(flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat)
+        print("saes_out_flat", saes_out_flat.shape)
+        print("flat_indicies", flat_indices.shape)
+        flatsize = saes_out_flat.shape[0]
+        x_out = torch.scatter_add(
+            torch.zeros(self.cfg.n_sae, batches, self.cfg0.d_data, device=self.cfg0.device),
+            0, 
+            batch_idxs.reshape(flatsize, 1, 1).expand(-1, 1, self.cfg0.d_data),
+            saes_out_flat.reshape(flatsize, 1, self.cfg0.d_data)
+        )
+
+        # x_reconstruct = self.unscale(x_out)
+        # print("x_out sum", x_out.sum())
+        return x_out.sum(0).reshape(x_dumb_shape)
+        
+    
+    def ad_hoc_sparse(self, x: torch.Tensor, gate: torch.Tensor):
         # x: (batches, d_data)
         # gate: (batches, n_sae)
         batches = x.shape[0]
@@ -158,9 +462,14 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         gate = gate.to_sparse()
         flat_indices = gate.indices().to(self.cfg0.device)
         # print("flat_indices", flat_indices.shape)
+        # if flat_indices.shape[1]/batches > 100:
+        #     newgate = torch.zeros(batches, self.cfg.n_sae, device=self.cfg0.device)
+        #     torch.multinomial()
+
         batch_idxs = flat_indices[0]
         sae_idxs = flat_indices[1]
-        x_flat = x[dgate > 0].unsqueeze(-2)
+
+        x_flat = x[batch_idxs].unsqueeze(-2)
 
         W_enc_flat = self.W_enc[sae_idxs]
         b_enc_flat = self.b_enc[sae_idxs].unsqueeze(-2)
@@ -196,6 +505,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         # print("x_out sum", x_out.sum())
         return x_out
         
+    
 
 
     def get_loss(self):
@@ -266,8 +576,8 @@ def main():
         l.backward()
         opt.step()
         opt.zero_grad()
-        print(l)
-    print("l0", hsae.sae_0.cached_l0_norm)
+        # print(l)
+    # print("l0", hsae.sae_0.cached_l0_norm)
     # x = torch.randn(2, d).cuda()
     # y = hsae(x)
     # y0 = hsae.sae_0(x)
@@ -287,4 +597,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print("Done __main__")
+    # print("Done __main__")

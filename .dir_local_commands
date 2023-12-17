@@ -1,0 +1,3 @@
+rrun(){
+    py remote_scripts/run.py $@
+}

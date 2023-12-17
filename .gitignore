@@ -7,3 +7,4 @@ parallel_zsae/__pycache__/
 repos/
 pythis_models_sam_aaron/dictionary_learning/
 wandb/
+.vscode/

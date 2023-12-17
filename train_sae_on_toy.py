@@ -90,8 +90,8 @@ def linspace_l1(ae, l1_radius):
     l1 = torch.linspace(cfg.l1_coeff * (1 - l1_radius), cfg.l1_coeff * (1 + l1_radius), cfg.dict_size, device=cfg.device)
     ae.l1_coeff = l1
     
-cfg = AutoEncoderConfig(site="toy_model", d_data=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
-                                l1_coeff=35e-5, dict_mult=8, batch_size=128, beta2=0.999, subshuffle=16,
+cfg = AutoEncoderConfig(site="toy_model", d_data=64, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
+                                l1_coeff=35e-5, dict_mult=2, batch_size=8, beta2=0.999, subshuffle=16,
                                 nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 16 * 7, buffer_refresh_ratio=0.25,
                                 lr=3e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
 

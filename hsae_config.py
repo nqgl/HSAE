@@ -13,6 +13,7 @@ class HierarchicalAutoEncoderConfig(AutoEncoderConfig):
     layer_cfg_params :Dict = field(default_factory = lambda :{})
     layer_cfg_params_per_layer :List[Dict] = field(default_factory = lambda :[])
     gate_mode :str = "binary"
+    act_size :int = None
 
     
     def __post_init__(self):
@@ -24,7 +25,7 @@ class HierarchicalAutoEncoderConfig(AutoEncoderConfig):
         if len(self.layer_cfg_params_per_layer) < self.num_layers:
             self.layer_cfg_params_per_layer += [{} for _ in range(self.num_layers - len(self.layer_cfg_params_per_layer))]
 
-
+        self.act_size = self.d_data
         if self.sublayer_cfgs == []:
             num_features_at_layer = 1 * self.d_dict
             for i in range(0, self.num_layers - 1):
