@@ -1,5 +1,6 @@
 from instance import *
 import argparse
+import time
 
 parser = argparse.ArgumentParser(description='Run a command on a remote machine.')
 parser.add_argument('--id', type=int, help='Name of remote machine')
@@ -8,11 +9,14 @@ parser.add_argument('--dont-sync', action='store_true', help='Dont sync code')
 parser.add_argument('--no-cd', action='store_true', help='Dont cd to ~/modified-SAE')
 parser.add_argument('--re-on-save', action='store_true', help='Re-run on save')
 parser.add_argument('--local', action='store_true', help='Run locally')
+parser.add_argument('--pkill', action='store_true', help="Pkill root after every command to prevent machine getting stuck.")
 parser.add_argument('command', type=str, help='Command to run on remote machine', nargs='+')
 
 args = parser.parse_args()
 
 if args.local:
+    if args.pkill:
+        raise Exception("Can't pkill root locally.")
     cmd = " ".join(args.command)
     
     if not args.re_on_save:
@@ -42,18 +46,41 @@ if not args.no_cd:
     cmd = f"cd ~/modified-SAE; {command}"
 else:
     cmd = command
-if not args.re_on_save:
-    inst.run(cmd)
-else:
-    while True:
-        try:
-            inst.run(cmd)
-        except:
-            print("Error running command or interrupted")
-        print("Waiting for change...")
-        subprocess.run("inotifywait -e modify .", shell=True)
-        print("Change detected!")
-        if not args.dont_sync:
-            inst.sync_code()
+try:
+    if not args.re_on_save:
+        inst.run(cmd)
+    else:
+        t0 = time.time()
+        while True:
+            try:
+                inst.run(cmd)
+            except:
+                print("Error running command or interrupted")
+            finally:
+                if args.pkill:
+                    try:
+                        inst.run("pkill -u root")
+                    except:
+                        if t0 + 16 > time.time():
+                            time.sleep(5)
+                            continue
 
-inst.close()
+                inst.close()
+            print("Waiting for change...")
+            subprocess.run("inotifywait -e modify .", shell=True)
+            print("Change detected!")
+            if not args.dont_sync:
+                inst.sync_code()
+            t0 = time.time()
+except:
+    pass
+finally:                
+    if args.pkill:
+        try:
+            inst.run("pkill -u root")
+        except:
+            inst.close()
+            exit()
+        else:
+            print("pkill failed")
+    inst.close()

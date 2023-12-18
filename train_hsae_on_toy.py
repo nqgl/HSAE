@@ -15,7 +15,7 @@ def train(encoder :HierarchicalAutoEncoder, cfg :HierarchicalAutoEncoderConfig, 
     t0 = time.time()
     # buffer.freshen_buffer(fresh_factor=0.5)
     try:
-        run = wandb.init(project="hsae_toy_model", entity="sae_all", config=cfg, mode="disabled")
+        run = wandb.init(project="hsae_toy_model", entity="hsae_all", config=cfg)
 
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches

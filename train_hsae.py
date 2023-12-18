@@ -49,6 +49,7 @@ def train(encoder :HierarchicalAutoEncoder, cfg :HierarchicalAutoEncoderConfig, 
             # scaler.update()
             encoder_optim.step()
             encoder_optim.zero_grad()
+        
             if i % 200 == 99 and encoder.neurons_to_be_reset is not None:
                 waiting = encoder.neurons_to_be_reset.shape[0]
                 wandb.log({"neurons_waiting_to_reset": encoder.neurons_to_be_reset.shape[0]})
@@ -61,7 +62,7 @@ def train(encoder :HierarchicalAutoEncoder, cfg :HierarchicalAutoEncoderConfig, 
                 encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
                 torch.cuda.empty_cache()
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
-            if (i) % 100 == 0:
+            if i % 100 == 0:
                 if l0_norm.item() < 20:
                     l0_too_high = False
                 wandb.log(loss_dict)
@@ -74,11 +75,17 @@ def train(encoder :HierarchicalAutoEncoder, cfg :HierarchicalAutoEncoderConfig, 
                             f"SAE_{i + 1} l0_norm": l0_norm.item()
                         }
                     )
+
+            if i % 1000 == 0:
+                wandb.log({
+                    "mse_contribs" : encoder.loss_contributions(acts)
+                })
             del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
-            if (i) % 5000 == 0 and not l0_too_high:
+            if (i+10) % 1000 == 0 and not l0_too_high:
                 x = (get_recons_loss(model, encoder, buffer, local_encoder=encoder, num_batches=1))
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
+
                 
                 # freqs = get_freqs(model, encoder, buffer, 5, local_encoder=encoder)
                 # freqs = encoder.neuron_activation_frequency / encoder.steps_since_activation_frequency_reset
@@ -92,9 +99,9 @@ def train(encoder :HierarchicalAutoEncoder, cfg :HierarchicalAutoEncoderConfig, 
                 #     "time spent shuffling": buffer.time_shuffling,
                 #     "total time" : time.time() - t0,
                 })
-            if i == 13501:
+            if i == 13501999:
                 encoder.reset_activation_frequencies()    
-            elif i % 15000 == 13501 and i > 1500:
+            elif i % 15000 == 13501999 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
@@ -115,10 +122,13 @@ def linspace_l1(ae, l1_radius):
     ae.l1_coeff = l1
     
 cfg = HierarchicalAutoEncoderConfig(site="resid_pre", d_data=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
-                                l1_coeff=35e-4, dict_mult=2, batch_size=128, beta2=0.999, 
+                                l1_coeff=1e-4, dict_mult=2, batch_size=128, beta2=0.999, 
                                 nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128, buffer_refresh_ratio=0.5000,
-                                lr=1e-4, features_per_sae_per_layer=[None, 16]) #original 3e-4 8e-4 or same but 1e-3 on l1
-
+                                lr=3e-4, features_per_sae_per_layer=[None, 32],
+                                layer_cfg_params={
+                                    "l1_coeff" : 1e-4
+                                }
+)
 def main():
     # cfg = sae.post_init_cfg(ae_cfg)
     model = get_model(cfg)

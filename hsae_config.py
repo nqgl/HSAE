@@ -60,6 +60,7 @@ class HierarchicalAutoEncoderLayerConfig():
     l1_coeff :Union[float, List[float]] = 8e-4
     beta1 :float = 0.9
     beta2 :float = 0.99
+    data_rescale :int = 10
 
 
 

@@ -39,10 +39,11 @@ class HierarchicalAutoEncoder(nn.Module):
         acts = self.sae_0.cached_acts
         self.cached_l1_loss = self.sae_0.cached_l1_loss
         # print("x_0", x_0.shape)
+        prev = self.sae_0
         for sae in self.saes:
             x_ = x if not self.cfg.sublayers_train_on_error else x - x_n
             gate = self.gate(acts)
-            x_next = sae(x_, gate, dense=dense)
+            x_next = sae(x_, gate, dense=dense, prev_sae = prev)
             # print("x_next", x_next.shape)
             # print("x_n", x_n.shape)
             print("x_n", x_n.shape)
@@ -50,7 +51,8 @@ class HierarchicalAutoEncoder(nn.Module):
 
             x_n = x_n + x_next #we should just store acts to a class var at default prob
             acts = sae.cached_acts
-            self.cached_l1_loss += sae.cached_l1_loss
+            # self.cached_l1_loss += sae.cached_l1_loss
+            prev = sae
         self.cached_l2_loss = (x - x_n) ** 2
         self.cached_l1_loss = self.sae_0.cached_l1_loss
         self.cached_l0_norm = self.sae_0.cached_l0_norm
@@ -75,6 +77,29 @@ class HierarchicalAutoEncoder(nn.Module):
         for sae in self.saes:
             l += sae.get_loss()
         return l
+
+
+    def loss_contributions(self, x):
+        saes = [sae for sae in self.saes]
+        x_0 = self.sae_0(x, cache_acts = True)
+        gate = self.gate(self.sae_0.cached_acts)
+        x_i = [x_0]
+        mses = []
+        for i, sae in enumerate(saes):
+            x_i.append(sae(x, gate))
+        x_re = torch.sum(x)
+        mse = (x - x_re).pow(2).mean()
+        x_re_i = [x_re - xi for xi in x_i]
+        mses = torch.tensor([(x - xrei).pow(2).mean() for xrei in x_re_i], device=self.cfg.device)
+        contrib = (mses - mse)
+        d = {}
+        for i in range(len(x_i)):
+            d[f"sae{i} mse contrib"] = contrib[i]/sum(contrib)
+        return d
+
+
+
+
 
 
 class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
@@ -125,7 +150,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
 
         self.to(self.cfg0.device)
-
+        self.prev_layer_L0 = None
 
 
 
@@ -158,7 +183,8 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
 
 
 
-    def forward(self, x: torch.Tensor, gate: torch.Tensor, dense=True):
+    def forward(self, x: torch.Tensor, gate: torch.Tensor, dense=True, prev_sae=None):
+        self.prev_layer_L0 = prev_sae.cached_l0_norm if prev_sae is not None else None    
         return self.ad_hoc_sparse2(x, gate)
         if dense:
             return self.dense(x, gate)
@@ -231,169 +257,6 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         o = m + b_dec
         return o
 
-    def sparse2(self, x: torch.Tensor, gate: torch.Tensor):
-        # x: (batches, d_data)
-        # gate: (batches, n_sae)
-        batch = x.shape[0]
-        d_data = self.cfg0.d_data
-        d_dict = self.cfg.d_dict
-        sgate = gate.to_sparse().unsqueeze(-1).unsqueeze(-1)
-        
-        x = x.unsqueeze(-2).unsqueeze(-2)                           # b 1 1 d_data
-        
-        b_dec = (sgate * self.b_dec).reshape(-1, 1, d_data)            # n_sae 1 d_data
-
-        x_cent = x - b_dec                                          # b n_sae 1 d_data
-        x_cent = x_cent.view(-1, 1, d_data)                         # b*n_sae 1 d_data
-        # x_cent_t = x_cent.transpose(-2, -1)                         # d_data b*n_sae
-
-        W_enc = (sgate * self.W_enc).view(-1, d_data, d_dict)       # b*n_sae d_data d_dict
-        # W_enc = W_enc.transpose(-2, -1)                             # b*n_sae d_dict d_data
-        
-
-        pre_acts = torch_sparse.spspmm(x_cent.indices(), x_cent.values(), W_enc.indices(), W_enc.values())  # b*n_sae d_dict
-        # x: b, n_sae, 1 d_dict
-        b_enc = (sgate * self.b_enc) # n_sae 1 d_dict
-        # x: b, n_sae, 1, d_dict
-        W_dec = (sgate * self.W_dec).view(-1, d_data, d_dict) #b n_sae d_dict d_data
-        print("sparse?", W_dec.is_sparse)
-        # x: b, n_sae, 1, d_data
-        # print("layer parts", b_dec.shape, W_enc.shape, b_enc.shape, W_dec.shape)
-        # print("x", x.shape)
-        acts = self.encode_sparse(x=x, W_enc=W_enc, b_dec=b_dec, b_enc=b_enc)
-        # print("acts", acts.shape)
-        self.cache(acts)
-        saes_out = self.decode_sparse(acts, W_dec=W_dec, b_dec=b_dec)
-        # print("saes_out", saes_out.shape)
-        saes_out = saes_out * gate.unsqueeze(-1).unsqueeze(-1)
-        return saes_out.sum(dim=-2).sum(dim=-2)
-
-
-    def sparse6(self, x, gate):
-        # Reshape and sparse operations
-        n_sae = self.cfg.n_sae
-        batch = x.shape[0]
-        d_data = self.cfg0.d_data
-        d_dict = self.cfg.d_dict
-
-        gate = gate.transpose(-1, -2).unsqueeze(-1)
-        sgate = gate.to_sparse() # n_sae B 1
-        x_cent = x.unsqueeze(-2) - self.b_dec # B n_sae d_data
-        x_cent_gated = x_cent.transpose(0, 1) * gate # n_sae B d_data
-        x_cent_gated = x_cent_gated.to_sparse(2)
-        W_enc = self.W_enc# n_sae B d_data d_dict
-        b_enc = self.b_enc # n_sae d_dict
-        print("x_cent", x_cent.shape)
-        print("W_enc", W_enc.shape, W_enc.is_sparse)
-        print("b_enc", b_enc.shape)
-        print("sgate", sgate.shape)
-        print("x_cent_gated", x_cent_gated.shape, x_cent_gated.is_sparse, x_cent_gated.dense_dim(), x_cent_gated.sparse_dim())
-        m = torch.sparse.mm(
-                x_cent_gated,
-                W_enc
-            )
-        b = b_enc.unsqueeze(-2) * gate
-
-        print("m", m.shape, m.is_sparse)
-        print("b", b.shape, b.is_sparse)
-        acts = self.nonlinearity(
-            m
-            + b
-        )
-        self.cache(acts)
-        print("acts", acts.is_sparse)
-
-        print(f"acts @ self.W_dec {acts.shape} @ {self.W_dec.shape}")
-        m = tsgu.sparse_mm(acts * sgate, self.W_dec) 
-        print(m.shape, self.b_dec.shape, gate.shape)
-        out = m + self.b_dec.unsqueeze(-2) * gate
-
-        print("out", out.shape)
-        print(out.is_sparse)
-        return out.sum(dim=0).squeeze()
-
-
-
-    def sparse5(self, x, gate):
-        # Reshape and sparse operations
-        n_sae = self.cfg.n_sae
-        batch = x.shape[0]
-        d_data = self.cfg0.d_data
-        d_dict = self.cfg.d_dict
-
-
-        gate_flat = gate.view(-1, 1)
-        sgate = gate_flat.to_sparse()
-        x_cent = x.unsqueeze(-2) - self.b_dec
-        x_cent_gated = x_cent.view(batch * n_sae, -1) * sgate
-        W_enc = self.W_enc
-        W_enc = torch.cat([W_enc] * batch, dim=0)
-        b_enc = self.b_enc
-        print("x_cent", x_cent.shape)
-        print("W_enc", W_enc.shape)
-        print("b_enc", b_enc.shape)
-        print("sgate", sgate.shape)
-        print("x_cent_gated", x_cent_gated.shape)
-        acts = self.nonlinearity(
-            torch.sparse.mm(
-                x_cent_gated,
-                W_enc
-            )
-            + b_enc * gate
-        )
-
-
-
-    def sparse4(self, x, gate):
-        # Reshape and sparse operations
-        n_sae = self.cfg.n_sae
-        batch = x.shape[0]
-        d_data = self.cfg0.d_data
-        d_dict = self.cfg.d_dict
-
-        gate_expanded = gate.unsqueeze(-1).unsqueeze(-1)
-        sgate = gate_expanded.to_sparse()
-        x_cent = x.unsqueeze(-2).unsqueeze(-2) - self.b_dec.unsqueeze(-2)
-        W_enc = self.W_enc.unsqueeze(0)
-        b_enc = self.b_enc.unsqueeze(-2).unsqueeze(0)
-        print("x_cent", x_cent.shape)
-        print("W_enc", W_enc.shape)
-        print("b_enc", b_enc.shape)
-        print("sgate", sgate.shape)
-        acts = self.nonlinearity(
-            torch.sparse.mm(
-                x_cent * sgate, 
-                W_enc)
-            + b_enc * sgate
-        )
-
-
-
-    def sparse3(self, x, gate):
-        # Reshape and sparse operations
-        n_sae = self.cfg.n_sae
-        batch = x.shape[0]
-        d_data = self.cfg0.d_data
-        d_dict = self.cfg.d_dict
-
-        gate_expanded = gate.unsqueeze(-1).unsqueeze(-1)  # New shape: (B, n, 1, 1)
-        sparse_gate = gate_expanded.to_sparse()
-
-        # Compute acts
-        x_expanded = x.unsqueeze(1).expand(batch, n_sae, d_data)  # Shape: (B, n, d_data)
-        x_weighted = x_expanded - self.b_dec
-        W_enc_weighted = self.W_enc * sparse_gate
-        acts = F.relu(torch.matmul(x_weighted, W_enc_weighted) + self.b_enc)
-
-        # Compute n_outs and outs
-        W_dec_weighted = self.W_dec * sparse_gate
-        n_outs = torch.matmul(acts, W_dec_weighted) + self.b_dec * sparse_gate
-        outs = n_outs.sum(dim=1).squeeze()
-
-        return outs
-
-
-
 
     def ad_hoc_sparse2(self, x: torch.Tensor, gate: torch.Tensor):
         # x: (batches, d_data)
@@ -406,7 +269,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
 
         # x = self.scale(x)
         gate = gate.unsqueeze(-1).unsqueeze(-1).transpose(0,1) # n_sae batches 1 1
-        dgate = gate
+        bgate = gate != 0
         # gate = gate.to_sparse()
         # print("flat_indices", flat_indices.shape)
         # if flat_indices.shape[1]/batches > 100:
@@ -415,10 +278,11 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         
         # batches 1 d_data  *  n_sae batches 1 1
         # -> n_sae batches 1 d_data
-        x_s = (x.unsqueeze(-2) * gate).to_sparse(2) 
+        x_s = (x.unsqueeze(-2) * bgate).to_sparse(2) 
         flat_indices = x_s.indices()
         batch_idxs = flat_indices[1]
         sae_idxs = flat_indices[0]
+        assert torch.sum(gate[sae_idxs, batch_idxs] == 0) == 0
 
         x_flat = x_s.values()
 
@@ -430,7 +294,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         # print(self.W_enc.shape, self.b_enc.shape, self.W_dec.shape, self.b_dec.shape)
         # print("x_flat", x_flat.shape)
         flat_acts = self.encode_flat(x=x_flat, W_enc=W_enc_flat, b_dec=b_dec_flat, b_enc=b_enc_flat)
-        # print("flat_acts", flat_acts.shape)
+        print("flat_acts", flat_acts.shape)
 
 
         # acts = acts.scatter_add(
@@ -440,8 +304,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         # )
         # acts[flat_indices] = flat_acts
         # print(acts.shape, flat_acts.shape)
-        self.cache(feat_acts)
-        self.cache_flat(flat_acts)
+        self.cache_flat(flat_acts, sae_idxs=sae_idxs, batches=batches, gate=gate)
         # flat_acts = flat_acts * dgate[flat_indices]
         saes_out_flat = self.decode_flat(flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat)
         print("saes_out_flat", saes_out_flat.shape)
@@ -472,64 +335,25 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         return x_out.reshape(x_dumb_shape)
         
 
-    def cache_flat():
-        feat_acts = torch.zeros(batches, self.cfg.n_sae, self.cfg.d_dict, device=self.cfg0.device)
-        feat_acts.scatter()
-    
-    def ad_hoc_sparse(self, x: torch.Tensor, gate: torch.Tensor):
-        # x: (batches, d_data)
-        # gate: (batches, n_sae)
-        batches = x.shape[0]
-
-        # x = self.scale(x)
-        dgate = gate
-        gate = gate.to_sparse()
-        flat_indices = gate.indices().to(self.cfg0.device)
-        # print("flat_indices", flat_indices.shape)
-        # if flat_indices.shape[1]/batches > 100:
-        #     newgate = torch.zeros(batches, self.cfg.n_sae, device=self.cfg0.device)
-        #     torch.multinomial()
-
-        batch_idxs = flat_indices[0]
-        sae_idxs = flat_indices[1]
-
-        x_flat = x[batch_idxs].unsqueeze(-2)
-
-        W_enc_flat = self.W_enc[sae_idxs]
-        b_enc_flat = self.b_enc[sae_idxs].unsqueeze(-2)
-        W_dec_flat = self.W_dec[sae_idxs]
-        b_dec_flat = self.b_dec[sae_idxs].unsqueeze(-2)
-        # print(W_enc.shape, b_enc.shape, W_dec.shape, b_dec.shape)
-        # print(self.W_enc.shape, self.b_enc.shape, self.W_dec.shape, self.b_dec.shape)
-        # print("x_flat", x_flat.shape)
-        flat_acts = self.encode_flat(x=x_flat, W_enc=W_enc_flat, b_dec=b_dec_flat, b_enc=b_enc_flat)
-        # print("flat_acts", flat_acts.shape)
-
-        feat_acts = torch.zeros(batches, self.cfg.n_sae, self.cfg.d_dict, device=self.cfg0.device)
-        # acts = acts.scatter_add(
-        #     0, 
-        #     flat_indices.unsqueeze(-1).unsqueeze(-1).expand(2, -1, self.cfg.n_sae, self.cfg.d_dict), 
-        #     flat_acts.reshape(-1, 1, self.cfg.d_dict)
-        # )
-        # acts[flat_indices] = flat_acts
-        # print(acts.shape, flat_acts.shape)
-        self.cache(feat_acts)
-        # flat_acts = flat_acts * dgate[flat_indices]
-        saes_out_flat = self.decode_flat(flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat)
-        # print("saes_out_flat", saes_out_flat.shape)
-
-        x_out = torch.scatter_add(
-            torch.zeros(batches, self.cfg0.d_data, device=self.cfg0.device),
-            0, 
-            batch_idxs.unsqueeze(-1).expand(-1, self.cfg0.d_data),
-            saes_out_flat.reshape(-1, self.cfg0.d_data)
+    def cache_flat(self, flat_acts, sae_idxs, batches, gate):
+        # TODO this currently does not translate to the >2 layer case 
+        # because acts are not cached full detail, they are stored
+        # summed along the batch axis
+        feat_acts = torch.scatter_add(
+            torch.zeros(self.cfg.n_sae, self.cfg.d_dict, device=self.cfg0.device),
+            0,
+            sae_idxs.unsqueeze(-1).expand(-1, self.cfg.d_dict),
+            flat_acts.reshape(-1, self.cfg.d_dict)
         )
 
-        # x_reconstruct = self.unscale(x_out)
-        # print("x_out sum", x_out.sum())
-        return x_out
-        
-    
+        print("feat acts sum:", feat_acts.sum())
+
+        n_active_batches_per_head = (gate != 0).squeeze(-1).squeeze(-1).float().sum(dim=-1, keepdim=True)
+        mean_acts = feat_acts / (n_active_batches_per_head.reshape(-1, 1) + 1e-9)
+        self.cache(mean_acts)
+        self.cached_l0_norm = torch.count_nonzero(flat_acts) / flat_acts.shape[0]
+        self.cached_l1_loss = flat_acts.float().abs().sum() / batches
+
 
 
     def get_loss(self):
@@ -537,8 +361,8 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
 
 
     def cache(self, acts, cache_l0 = True, cache_acts = True):
-        self.cached_l1_loss = acts.float().abs().sum(dim=-1).mean()
-        self.cached_l0_norm = torch.count_nonzero(acts, dim=-1).float().mean() if cache_l0 else None
+        # self.cached_l1_loss = acts.float().abs().sum(dim=-1).mean()
+        # self.cached_l0_norm = torch.count_nonzero(acts, dim=-1).float().mean() if cache_l0 else None
         self.cached_acts = acts if cache_acts else None
         record_activation_frequency = False
         if record_activation_frequency:
@@ -562,16 +386,16 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             self.scaling_factor = self.std_dev_accumulation / self.std_dev_accumulation_steps
 
 
-
     # @torch.no_grad()
     def scale(self, x):
-        raise Exception("lower-level layer getting scaled")
-        return x / self.scaling_factor
+        return x * self.cfg.data_rescale
 
     # @torch.no_grad()
     def unscale(self, x):
-        raise Exception("lower-level layer getting scaled")
-        return x * self.scaling_factor
+        return x / self.cfg.data_rescale
+    
+
+
 
 @torch.no_grad()
 def make_ll_self_similar(hsae :HierarchicalAutoEncoder, layer_index :int):
