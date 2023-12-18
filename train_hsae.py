@@ -84,14 +84,14 @@ def train(encoder :HierarchicalAutoEncoder, cfg :HierarchicalAutoEncoderConfig, 
                 # freqs = encoder.neuron_activation_frequency / encoder.steps_since_activation_frequency_reset
                 # act_freq_scores_list.append(freqs)
                 # histogram(freqs.log10(), marginal="box",h istnorm="percent", title="Frequencies")
-                # wandb.log({
-                #     "recons_score": x[0],
+                wandb.log({
+                    "recons_score": x[0],
                 #     "dead": (freqs==0).float().mean().item(),
                 #     "below_1e-6": (freqs<1e-6).float().mean().item(),
                 #     "below_1e-5": (freqs<1e-5).float().mean().item(),
                 #     "time spent shuffling": buffer.time_shuffling,
                 #     "total time" : time.time() - t0,
-                # })
+                })
             if i == 13501:
                 encoder.reset_activation_frequencies()    
             elif i % 15000 == 13501 and i > 1500:

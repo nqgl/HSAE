@@ -66,10 +66,11 @@ def replacement_hook(acts, hook, encoder):
         acts = einops.rearrange(acts, "... n_head d_head -> ... (n_head d_head)")
     acts_shape = acts.shape
     acts = acts.reshape(-1, encoder.cfg.act_size)
-    mlp_post_reconstr = encoder(acts)
+    mlp_post_reconstr = encoder(acts.reshape(-1, encoder.cfg.act_size))
+    acts = acts.reshape(acts_shape)
+    mlp_post_reconstr = mlp_post_reconstr.reshape(acts_shape)
     if encoder.cfg.flatten_heads:
         mlp_post_reconstr = einops.rearrange(mlp_post_reconstr, "... (n_head d_head) -> ... n_head d_head", n_head=n_head, d_head=d_head)
-    acts = acts.reshape(acts_shape)
     return mlp_post_reconstr
 
 def mean_ablate_hook(mlp_post, hook):

@@ -7,9 +7,27 @@ parser.add_argument('--setup', action='store_true', help='Setup remote machine')
 parser.add_argument('--dont-sync', action='store_true', help='Dont sync code')
 parser.add_argument('--no-cd', action='store_true', help='Dont cd to ~/modified-SAE')
 parser.add_argument('--re-on-save', action='store_true', help='Re-run on save')
+parser.add_argument('--local', action='store_true', help='Run locally')
 parser.add_argument('command', type=str, help='Command to run on remote machine', nargs='+')
 
 args = parser.parse_args()
+
+if args.local:
+    cmd = " ".join(args.command)
+    
+    if not args.re_on_save:
+        subprocess.run(cmd, shell=True)
+    else:
+        while True:
+            try:
+                subprocess.run(cmd, shell=True)
+            except:
+                print("Error running command or interrupted")
+            print("Waiting for change...")
+            subprocess.run("inotifywait -e modify .", shell=True)
+            print("Change detected!")    
+    exit()
+
 
 if args.id is None:
     args.id = 0
