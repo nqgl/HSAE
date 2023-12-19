@@ -1,5 +1,5 @@
 from buffer import Buffer
-from sae import AutoEncoder, AutoEncoderConfig
+from sae.model import AutoEncoder, AutoEncoderConfig
 from setup_utils import get_model, load_data
 from calculations_on_sae import get_recons_loss
 from transformer_lens import HookedTransformer
@@ -14,7 +14,7 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :ToyModel):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
     try:
-        run = wandb.init(project="features_toy_model", entity="sae_all", config=cfg, mode="disabled")
+        run = wandb.init(project="features_toy_model", entity="sae_all", config={"encoder": cfg, "toy": buffer.cfg}, mode="disabled")
 
         num_batches = cfg.num_tokens // cfg.batch_size
         encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
@@ -47,8 +47,9 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :ToyModel):
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
-            if (i) % 5000 == 0:
+            if i % 500 == 0:
                 visualize_by_heatmap(buffer, encoder)
+            if (i) % 5000 == 0:
                 freqs = encoder.neuron_activation_frequency / encoder.steps_since_activation_frequency_reset
                 act_freq_scores_list.append(freqs)
                 # histogram(freqs.log10(), marginal="box",h istnorm="percent", title="Frequencies")
@@ -67,7 +68,7 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :ToyModel):
                 to_be_reset = (freqs<10**(-5.5))
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
-                    encoder.neurons_to_reset(to_be_reset)
+                    encoder.queue_neurons_to_reset(to_be_reset)
                 wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t1})
                 encoder.reset_activation_frequencies()
     finally:
@@ -79,14 +80,27 @@ def linspace_l1(ae, l1_radius):
     ae.l1_coeff = l1
     
 cfg = AutoEncoderConfig(site="toy_model", d_data=64, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
-                                l1_coeff=35e-5, dict_mult=2, batch_size=8, beta2=0.999, subshuffle=16,
-                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 16 * 7, buffer_refresh_ratio=0.25,
+                                l1_coeff=14e-4, dict_mult=1, batch_size=128, beta2=0.999,
                                 lr=3e-4) 
 
 def main():
     encoder = AutoEncoder(cfg)
-    toycfg = ToyModelConfig(d_data = cfg.d_data, n_features=1024, num_correlation_rounds=2, batch_size=cfg.batch_size)
+    toycfg = ToyModelConfig(
+        d_data = cfg.d_data, 
+        n_features=32, 
+        num_correlation_rounds=10, 
+        batch_size=cfg.batch_size,
+        blank_correlations=False,
+        initial_features=3,
+        features_per_round=2,
+        features_per_round_negative=4,
+        seed=50,
+        correlation_drop = 0.9,
+        source_prob_drop = 0.85
+    )
+
     toy = ToyModel(toycfg)
+    toy.f_means[:] = 1
     train(encoder, cfg, toy)
 
 if __name__ == "__main__":

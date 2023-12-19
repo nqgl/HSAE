@@ -4,11 +4,10 @@ import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
-
 def get_adjusted_feature_directions(toy :ToyModel, ae :AutoEncoder):
     
     ground_truth_features = toy.features
-    v = torch.eye(ae.cfg0.d_dict, device="cuda")
+    v = torch.eye(ae.cfg.d_dict, device="cuda")
     # learned_features = ae.decode(v) - ae.decoder_bias()
     learned_features = ae.W_dec
     learned_features = F.normalize(learned_features, dim=-1)
@@ -20,6 +19,9 @@ def get_adjusted_feature_directions(toy :ToyModel, ae :AutoEncoder):
 
 import seaborn as sns
 def visualize_by_heatmap(toy :ToyModel, ae :AutoEncoder, special_features = [], special_labels = []):
+    # TODO selection of rows and columns
+    # TODO ax parameter so you can plot multiple
+    # TODO color scheme where 0 is always black?
     plt.ion()   
 
     ground_truth, learned = get_adjusted_feature_directions(toy, ae)
@@ -32,7 +34,7 @@ def visualize_by_heatmap(toy :ToyModel, ae :AutoEncoder, special_features = [], 
         features_similarity), 
     dim=0)
 
-    permuted_heatmap(features_similarity)
+    permuted_heatmap(F.relu(features_similarity))
 
 
 def permuted_heatmap(mat :torch.Tensor, special_features = None, special_labels = []):

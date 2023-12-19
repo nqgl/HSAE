@@ -1,5 +1,5 @@
 from buffer import Buffer
-from sae import AutoEncoder, AutoEncoderConfig
+from sae.model import AutoEncoder, AutoEncoderConfig
 from setup_utils import get_model, load_data
 from calculations_on_sae import get_recons_loss
 from transformer_lens import HookedTransformer
@@ -83,7 +83,7 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :Buffer, model :H
                 to_be_reset = (freqs<10**(-5.5))
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
-                    encoder.neurons_to_reset(to_be_reset)
+                    encoder.queue_neurons_to_reset(to_be_reset)
                     # re_init(model, encoder, buffer, to_be_reset)
                 wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t1})
                 encoder.reset_activation_frequencies()

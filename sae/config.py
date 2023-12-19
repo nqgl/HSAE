@@ -23,7 +23,7 @@ class AutoEncoderConfig: #TODO some of these types are wrong. possibly some fiel
     layer :int = 0
     model_name :str = "gelu-2l"
     site :str = "" # z?
-    flatten_heads :bool = True
+    flatten_heads :bool = False
     
     # hw usage
     enc_dtype :str = "fp32"

@@ -1,4 +1,4 @@
-from sae_config import AutoEncoderConfig
+from sae.config import AutoEncoderConfig
 from setup_utils import get_model
 from buffer import Buffer
 import torch

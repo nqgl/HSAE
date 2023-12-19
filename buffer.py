@@ -1,4 +1,4 @@
-from sae_config import AutoEncoderConfig
+from sae.config import AutoEncoderConfig
 
 
 import einops

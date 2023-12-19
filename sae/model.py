@@ -2,9 +2,9 @@
 # this work https://colab.research.google.com/drive/1MjF_5-msnSe5F9Qy4kEGSeqyYPE9_D2p?authuser=1#scrollTo=7WXAjU3mRak6
 # which I think was made by Bart Bussman, based off Neel Nanda's code.
 from nqgl.sae import novel_nonlinearities
-from nqgl.sae.sae_config import AutoEncoderConfig
+from nqgl.sae.sae.config import AutoEncoderConfig
 from nqgl.sae.setup_utils import SAVE_DIR, DTYPES
-
+from nqgl.sae.sae.base import BaseSAE
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,7 +23,7 @@ class AutoEncoder(nn.Module):
         dtype = DTYPES[cfg.enc_dtype]
         torch.manual_seed(cfg.seed)
         
-        self.cfg0 = cfg      
+        self.cfg = cfg      
 
         self.b_dec = nn.Parameter(torch.zeros(cfg.d_data, dtype=dtype))
         self.W_enc = nn.Parameter(torch.nn.init.kaiming_uniform_(torch.empty(cfg.d_data, cfg.d_dict, dtype=dtype)))
@@ -46,7 +46,7 @@ class AutoEncoder(nn.Module):
         self.cached_acts = None
 
         # neuron reset fields
-        self.neuron_activation_frequency = torch.zeros(self.cfg0.d_dict, dtype=torch.float32).to(cfg.device)
+        self.neuron_activation_frequency = torch.zeros(self.cfg.d_dict, dtype=torch.float32).to(cfg.device)
         self.steps_since_activation_frequency_reset = 0
         self.neurons_to_be_reset = None
         
@@ -59,7 +59,7 @@ class AutoEncoder(nn.Module):
         self.step_num = 0
 
     def encode(self, x, cache_acts = False, cache_l0 = False, record_activation_frequency = False):
-        if self.cfg0.scale_in_forward:
+        if self.cfg.scale_in_forward:
             x = self.scale(x)
         x_cent = x - self.b_dec
         acts = self.nonlinearity(x_cent @ self.W_enc + self.b_enc)
@@ -80,7 +80,7 @@ class AutoEncoder(nn.Module):
     def decode(self, acts):
         
         x_reconstruct = acts @ self.W_dec + self.b_dec
-        if self.cfg0.scale_in_forward:
+        if self.cfg.scale_in_forward:
             return self.unscale(x_reconstruct)
         return x_reconstruct
 
@@ -102,11 +102,11 @@ class AutoEncoder(nn.Module):
 
 
     def get_loss(self):
-        if self.cfg0.cosine_l1 is None:
+        if self.cfg.cosine_l1 is None:
             l1_coeff = self.l1_coeff
         else:
             self.step_num += 1
-            c_period, c_range = self.cfg0.cosine_l1["period"], self.cfg0.cosine_l1["range"]
+            c_period, c_range = self.cfg.cosine_l1["period"], self.cfg.cosine_l1["range"]
             l1_coeff = self.l1_coeff * (1 + c_range * torch.cos(torch.tensor(2 * torch.pi * self.step_num / c_period).detach()))
 
         l2 = torch.mean(self.cached_l2_loss)
@@ -120,7 +120,7 @@ class AutoEncoder(nn.Module):
         std = torch.sqrt(var)
         self.std_dev_accumulation += std #x_cent.std(dim=0).mean() is p diferent I believe
         self.std_dev_accumulation_steps += 1
-        self.scaling_factor.data[:] = self.std_dev_accumulation / self.std_dev_accumulation_steps / self.cfg0.data_rescale
+        self.scaling_factor.data[:] = self.std_dev_accumulation / self.std_dev_accumulation_steps / self.cfg.data_rescale
 
     # @torch.no_grad()
     def scale(self, x):
@@ -132,7 +132,7 @@ class AutoEncoder(nn.Module):
 
 
     @torch.no_grad()
-    def neurons_to_reset(self, to_be_reset :torch.Tensor):
+    def queue_neurons_to_reset(self, to_be_reset :torch.Tensor):
         if to_be_reset.sum() > 0:
             self.neurons_to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
             w_enc_norms = self.W_enc[:, ~ to_be_reset].norm(dim=0)
@@ -142,78 +142,6 @@ class AutoEncoder(nn.Module):
         else:
             self.neurons_to_be_reset = None
     
-    @torch.no_grad()
-    def re_init_neurons(self, x_diff):
-        self.re_init_neurons_gram_shmidt_precise_iterative_argmax(x_diff)
-
-    @torch.no_grad()
-    def re_init_neurons_gram_shmidt_precise_iterative_argmax(self, x_diff):
-        n_reset = min(x_diff.shape[0], self.cfg0.d_data // 2, self.cfg0.num_to_resample)
-        v_orth = torch.zeros_like(x_diff)
-        n_succesfully_reset = n_reset
-        for i in range(n_reset):
-            magnitudes = x_diff.norm(dim=-1)
-            i_max = torch.argmax(magnitudes)
-            v_orth[i] = x_diff[i_max]
-            for j in range(max(0, i - self.cfg0.gram_shmidt_trail), i):
-                v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
-            if v_orth[i].norm() < 1e-6:
-                n_succesfulselfly_reset = i
-                break
-            v_orth[i] = F.normalize(v_orth[i], dim=-1)
-            x_diff -= (x_diff @ v_orth[i]).unsqueeze(1) * v_orth[i] / torch.dot(v_orth[i], v_orth[i])
-            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
-            # # print(v_.shape)
-            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
-        self.reset_neurons(v_orth[:n_succesfully_reset])
-
-
-    @torch.no_grad()
-    def re_init_neurons_gram_shmidt_precise_topk(self, x_diff):
-        t = self.cfg0.gram_shmidt_trail
-        n_reset = min(x_diff.shape[0], self.cfg0.d_data // 2, self.cfg0.num_to_resample)
-        v_orth = torch.zeros_like(x_diff)
-        # print(x_diff.shape)
-        # v_orth[0] = F.normalize(x_diff[0], dim=-1)
-        magnitudes = x_diff.norm(dim=-1)
-        indices = torch.topk(magnitudes, n_reset).indices
-        x_diff = x_diff[indices]
-        n_succesfully_reset = n_reset
-        for i in range(n_reset):
-            v_orth[i] = x_diff[i]
-            for j in range(max(0, i - t), i):
-                v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
-            if v_orth[i].norm() < 1e-6:
-                n_succesfully_reset = i
-                break
-            v_orth[i] = F.normalize(v_orth[i], dim=-1)
-            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
-            # # print(v_.shape)
-            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
-        self.reset_neurons(v_orth[:n_succesfully_reset])
-
-
-    
-    @torch.no_grad()
-    def re_init_neurons_gram_shmidt_precise(self, x_diff):
-        t = self.cfg0.gram_shmidt_trail
-        n_reset = min(x_diff.shape[0], self.cfg0.d_data // 2, self.cfg0.num_to_resample)
-        v_orth = torch.zeros_like(x_diff)
-        # print(x_diff.shape)
-        # v_orth[0] = F.normalize(x_diff[0], dim=-1)
-        n_succesfully_reset = n_reset
-        for i in range(n_reset):
-            v_orth[i] = x_diff[i]
-            for j in range(max(0, i - t), i):
-                v_orth[i] -= torch.dot(v_orth[j], v_orth[i]) * v_orth[j] / torch.dot(v_orth[j], v_orth[j])
-            if v_orth[i].norm() < 1e-6:
-                n_succesfully_reset = i
-                break
-            v_orth[i] = F.normalize(v_orth[i], dim=-1)
-            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
-            # # print(v_.shape)
-            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
-        self.reset_neurons(v_orth[:n_succesfully_reset])
 
     @torch.no_grad()
     def reset_neurons(self, new_directions :torch.Tensor, norm_encoder_proportional_to_alive = True):
@@ -263,7 +191,7 @@ class AutoEncoder(nn.Module):
         version = self.get_version()
         torch.save(self.state_dict(), SAVE_DIR/(str(version)+ "_" + name + ".pt"))
         with open(SAVE_DIR/(str(version)+ "_" + name + "_cfg.json"), "w") as f:
-            json.dump(asdict(self.cfg0), f)
+            json.dump(asdict(self.cfg), f)
         print("Saved as version", version)
 
     @classmethod

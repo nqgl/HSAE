@@ -1,6 +1,6 @@
 from buffer import Buffer
 import setup_utils
-import sae
+import sae.model as model
 from calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import train_sae
@@ -31,18 +31,18 @@ def main():
     #                                  nonlinearity=("undying_relu", {"l" : 0.001, "k" : 0.1}), 
     #                                  lr=1e-4) #original 3e-4 8e-4 or same but 1e-3 on l1
     skip_ratio = 0.08
-    cfg = sae.post_init_cfg(ae_cfg)
+    cfg = model.post_init_cfg(ae_cfg)
     model = setup_utils.get_model(cfg)
     all_tokens = setup_utils.load_data(model)
-    encoder = sae.AutoEncoder.load_latest(new_cfg = cfg)
+    encoder = model.AutoEncoder.load_latest(new_cfg = cfg)
     # encoder = sae.AutoEncoder.load(14, save_dir="/root/workspace/")
     # encoder.cfg.gram_shmidt_trail = 500
     # encoder.cfg.num_to_resample = 64
     # linspace_l1(encoder, 0.2)
 
-    buffer = Buffer(encoder.cfg0, all_tokens, model=model)
+    buffer = Buffer(encoder.cfg, all_tokens, model=model)
     buffer.skip_first_tokens_ratio(skip_ratio)
-    train_sae.train(encoder, encoder.cfg0, buffer, model)
+    train_sae.train(encoder, encoder.cfg, buffer, model)
 
 if __name__ == "__main__":
     main()

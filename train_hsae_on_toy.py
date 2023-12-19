@@ -1,6 +1,6 @@
 from buffer import Buffer
-from sae import AutoEncoder, AutoEncoderConfig
-from hsae import HierarchicalAutoEncoder, HierarchicalAutoEncoderConfig
+from sae.model import AutoEncoder, AutoEncoderConfig
+from hsae.hsae import HierarchicalAutoEncoder, HierarchicalAutoEncoderConfig
 from setup_utils import get_model, load_data
 from calculations_on_sae import get_recons_loss
 from transformer_lens import HookedTransformer

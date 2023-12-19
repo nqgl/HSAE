@@ -17,6 +17,9 @@ class ToyModelConfig:
     device :str = "cuda"
     seed :Optional[int] = None
     blank_correlations :bool = True
+    correlation_drop :float = 0
+    source_prob_drop :float = 0
+
 
 class ToyModel:
     def __init__(self, cfg :ToyModelConfig):
@@ -26,12 +29,30 @@ class ToyModel:
         features = torch.randn(cfg.n_features, cfg.d_data).to(cfg.device)
         self.features = F.normalize(features, dim=-1).to(cfg.device)
         self.f_means = torch.randn(cfg.n_features).to(cfg.device)
-        self.f_probs = torch.rand(cfg.n_features).to(cfg.device)
+
         self.f_stds = torch.rand(cfg.n_features).to(cfg.device)
+
+        self.f_probs = F.dropout(
+            torch.rand(cfg.n_features).to(cfg.device),
+            cfg.source_prob_drop,
+            training=True
+        ) * (1 - cfg.source_prob_drop)
+        
         if cfg.blank_correlations:
-            self.correlations = [torch.zeros(cfg.n_features, cfg.n_features).to(cfg.device) for _ in range(cfg.num_correlation_rounds)]
+            self.correlations = [
+                    torch.zeros(cfg.n_features, cfg.n_features).to(cfg.device) 
+                for _ in range(cfg.num_correlation_rounds)
+            ]
+
         else:
-            self.correlations = [torch.randn(cfg.n_features, cfg.n_features).to(cfg.device) for _ in range(cfg.num_correlation_rounds)]
+            self.correlations = [
+                    F.dropout(
+                        torch.randn(cfg.n_features, cfg.n_features).to(cfg.device),
+                        cfg.correlation_drop,
+                        training=True)
+                    * (1 - cfg.correlation_drop)
+                for _ in range(cfg.num_correlation_rounds)
+            ]
         self.features_per_round = [cfg.features_per_round] * len(self.correlations) if isinstance(cfg.features_per_round, int) else cfg.features_per_round
         self.features_per_round_negative = self.features_per_round if cfg.features_per_round_negative is None else cfg.features_per_round_negative
         self.features_per_round_negative = [self.features_per_round_negative] * len(self.correlations) if isinstance(self.features_per_round_negative, int) else self.features_per_round_negative
@@ -65,6 +86,7 @@ class ToyModel:
         features = feature_magnitudes.unsqueeze(-1) * active.unsqueeze(-1) * self.features
         x = features.sum(dim=1)
         # print(x.shape)
+        print("average_activations:", active.sum() / batch, len(self.correlations))
         return x
     
     @torch.no_grad()
@@ -79,12 +101,12 @@ class ToyModel:
         """
         # print(torch.sum(probs))
         if num_samples == 0:
-            return torch.zeros(0, device=self.cfg.device)
+            return torch.zeros(0, device=self.cfg.device, dtype=torch.bool)
         nonzero_axes = probs.sum(dim=-1) > 0
         # print(probs.shape)
         # print(nonzero_axes)
         if nonzero_axes.shape[0] == 0:
-            return torch.zeros(0, device=self.cfg.device)
+            return torch.zeros(0, device=self.cfg.device, dtype=torch.bool)
         # print(probs[nonzero_axes].sum())
         # print("probs", probs.shape)
         # print("probs", probs)

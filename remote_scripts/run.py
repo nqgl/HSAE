@@ -39,8 +39,8 @@ if args.local:
                 subprocess.run(cmd, shell=True)
             except:
                 print("Error running command or interrupted")
-            print("Waiting for change...")
-            subprocess.run("inotifywait -e modify .", shell=True)
+            print("\n\n\nWaiting for change...")
+            subprocess.run("inotifywait -r --exclude __pycache__ -e modify .", shell=True)
             print("Change detected!")    
     exit()
 
@@ -91,7 +91,7 @@ try:
 
                 inst.close()
             print("Waiting for change...")
-            subprocess.run("inotifywait -e modify .", shell=True)
+            subprocess.run("inotifywait -r --exclude __pycache__ -e modify .", shell=True)
             print("Change detected!")
             time.sleep(1)
             t0 = time.time()

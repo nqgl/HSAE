@@ -34,7 +34,7 @@ def get_simple_hierarchy_model(d_data, n_features = 3, rounds = 1):
     )
     model = ToyModel(cfg)
 
-    model.f_means[:] = 1
+    model.f_means[:] += 1
     # model.f_stds[:] = 0.1
     # model.features[0][0] = 1
     # model.features[0][1] = 0

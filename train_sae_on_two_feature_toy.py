@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 
 
 from buffer import Buffer
-from sae import AutoEncoder, AutoEncoderConfig
+from sae.model import AutoEncoder, AutoEncoderConfig
 from setup_utils import get_model, load_data
 from calculations_on_sae import get_recons_loss
 
@@ -74,7 +74,7 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :ToyModel):
                 to_be_reset = (freqs<10**(-5.5))
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
-                    encoder.neurons_to_reset(to_be_reset)
+                    encoder.queue_neurons_to_reset(to_be_reset)
                 wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t1})
                 encoder.reset_activation_frequencies()
     finally:
@@ -84,7 +84,7 @@ def linspace_l1(ae, l1_radius):
     cfg = ae.cfg
     l1 = torch.linspace(cfg.l1_coeff * (1 - l1_radius), cfg.l1_coeff * (1 + l1_radius), cfg.dict_size, device=cfg.device)
     ae.l1_coeff = l1
-n_features = 16
+n_features = 6
 d_data = 32
 cfg = AutoEncoderConfig(site="toy_model", d_data=d_data, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
                                 l1_coeff=14e-4, dict_mult=(n_features*2) / d_data + 1e-4, batch_size=128, beta2=0.999,
@@ -95,7 +95,10 @@ def main():
     encoder = AutoEncoder(cfg)
     # toycfg = ToyModelConfig(d_data = cfg.d_data, n_features=1024, num_correlation_rounds=2, batch_size=cfg.batch_size)
     # toy = ToyModel(toycfg)
-    toy = two_features.get_simple_hierarchy_model(d_data = cfg.d_data, n_features=n_features)
+    toy = two_features.get_simple_hierarchy_model(
+        d_data = cfg.d_data,
+        n_features=n_features)
+    toy.f_means[0] = 10
     # toy.correlations = []
     toy.cfg.initial_features = 1
     encoder.update_scaling(toy.next())
@@ -145,4 +148,4 @@ def main2():
 
 
 if __name__ == "__main__":
-    main2()
+    main()
