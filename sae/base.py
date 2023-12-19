@@ -3,21 +3,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class BaseSAE(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.cfg = None
 
-    @torch.no_grad()
-    def neurons_to_reset(self, to_be_reset :torch.Tensor):
-        if to_be_reset.sum() > 0:
-            self.neurons_to_be_reset = torch.argwhere(to_be_reset).squeeze(1)
-            w_enc_norms = self.W_enc[:, ~ to_be_reset].norm(dim=0)
-            # print("w_enc_norms", w_enc_norms.shape)
-            # print("to_be_reset", self.to_be_reset.sum())
-            self.alive_norm_along_feature_axis = torch.mean(torch.mean(w_enc_norms))
-        else:
-            self.neurons_to_be_reset = None
-    
-    @torch.no_grad()
-    def re_init_neurons(self, x_diff):
-        self.re_init_neurons_gram_shmidt_precise_iterative_argmax(x_diff)
+
+
+
+
+
+    # neuron resampling
+    reset_neurons
+
+
 
 
     def queue_neurons_to_reset(self, to_be_reset :torch.Tensor):
@@ -30,12 +28,12 @@ class BaseSAE(nn.Module):
         else:
             self.neurons_to_be_reset = None
 
-
-
     @torch.no_grad()
     def re_init_neurons(self, x_diff):
         self.re_init_neurons_gram_shmidt_precise_iterative_argmax(x_diff)
 
+
+# Various reinit methods below
     @torch.no_grad()
     def re_init_neurons_gram_shmidt_precise_iterative_argmax(self, x_diff):
         n_reset = min(x_diff.shape[0], self.cfg.d_data // 2, self.cfg.num_to_resample)

@@ -9,7 +9,8 @@ import torch.nn as nn
 
 
 class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
-    def __init__(self, cfg :HierarchicalAutoEncoderLayerConfig, cfg_0 :HierarchicalAutoEncoderConfig):
+    def __init__(self, 
+                 cfg :HierarchicalAutoEncoderLayerConfig, cfg_0 :HierarchicalAutoEncoderConfig):
         super().__init__(cfg)
         self.cfg = cfg
         self.cfg_0 = cfg_0
