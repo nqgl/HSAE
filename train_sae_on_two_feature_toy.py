@@ -1,7 +1,3 @@
-from buffer import Buffer
-from sae import AutoEncoder, AutoEncoderConfig
-from setup_utils import get_model, load_data
-from calculations_on_sae import get_recons_loss
 from transformer_lens import HookedTransformer
 from toy_models.toy_model import ToyModel, ToyModelConfig
 from analysis.visualize_features import visualize_by_heatmap
@@ -9,6 +5,16 @@ import wandb
 import tqdm
 import torch
 import time
+from matplotlib import pyplot as plt
+
+
+from buffer import Buffer
+from sae import AutoEncoder, AutoEncoderConfig
+from setup_utils import get_model, load_data
+from calculations_on_sae import get_recons_loss
+
+from toy_models import two_features
+from toy_models import toy_model
 
 def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :ToyModel):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
@@ -47,8 +53,9 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :ToyModel):
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
-            if (i) % 5000 == 0:
+            if i % 500 == 0:
                 visualize_by_heatmap(buffer, encoder)
+            if (i) % 5000 == 0:
                 freqs = encoder.neuron_activation_frequency / encoder.steps_since_activation_frequency_reset
                 act_freq_scores_list.append(freqs)
                 # histogram(freqs.log10(), marginal="box",h istnorm="percent", title="Frequencies")
@@ -58,9 +65,9 @@ def train(encoder :AutoEncoder, cfg :AutoEncoderConfig, buffer :ToyModel):
                     "below_1e-5": (freqs<1e-5).float().mean().item(),
                     "total time" : time.time() - t0,
                 })
-            if i == 13501:
+            if i == 1351:
                 encoder.reset_activation_frequencies()    
-            elif i % 15000 == 13501 and i > 1500:
+            elif i % 5500 == 1351 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 freqs = encoder.neuron_activation_frequency / encoder.steps_since_activation_frequency_reset
@@ -77,17 +84,65 @@ def linspace_l1(ae, l1_radius):
     cfg = ae.cfg
     l1 = torch.linspace(cfg.l1_coeff * (1 - l1_radius), cfg.l1_coeff * (1 + l1_radius), cfg.dict_size, device=cfg.device)
     ae.l1_coeff = l1
-    
-cfg = AutoEncoderConfig(site="toy_model", d_data=64, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
-                                l1_coeff=35e-5, dict_mult=2, batch_size=8, beta2=0.999, subshuffle=16,
-                                nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128 * 16 * 7, buffer_refresh_ratio=0.25,
-                                lr=3e-4) 
+n_features = 16
+d_data = 32
+cfg = AutoEncoderConfig(site="toy_model", d_data=d_data, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
+                                l1_coeff=14e-4, dict_mult=(n_features*2) / d_data + 1e-4, batch_size=128, beta2=0.999,
+                                lr=1e-3) 
 
 def main():
+    plt.show()
     encoder = AutoEncoder(cfg)
-    toycfg = ToyModelConfig(d_data = cfg.d_data, n_features=1024, num_correlation_rounds=2, batch_size=cfg.batch_size)
-    toy = ToyModel(toycfg)
+    # toycfg = ToyModelConfig(d_data = cfg.d_data, n_features=1024, num_correlation_rounds=2, batch_size=cfg.batch_size)
+    # toy = ToyModel(toycfg)
+    toy = two_features.get_simple_hierarchy_model(d_data = cfg.d_data, n_features=n_features)
+    # toy.correlations = []
+    toy.cfg.initial_features = 1
+    encoder.update_scaling(toy.next())
     train(encoder, cfg, toy)
 
+
+
+def main2():
+    plt.show()
+    encoder = AutoEncoder(cfg)
+    # toycfg = ToyModelConfig(d_data = cfg.d_data, n_features=1024, num_correlation_rounds=2, batch_size=cfg.batch_size)
+    # toy = ToyModel(toycfg)
+    toy = two_features.get_simple_hierarchy_model(d_data = cfg.d_data, n_features=n_features, rounds=4)
+    toy.cfg.initial_features = 3
+
+    toy.add_hierarchical_feature(
+        toy.correlations[0],
+        src=0, 
+        dest=torch.arange(0, 1, device=toy.cfg.device), 
+        weight=1
+    )
+
+    toy.add_hierarchical_feature(
+        toy.correlations[1],
+        src=4, 
+        dest=torch.arange(5, 9, device=toy.cfg.device), 
+        weight=1
+    )
+    
+    toy.add_hierarchical_feature(
+        toy.correlations[3],
+        src=7, 
+        dest=(8, 9, 10), 
+        weight=1
+    )
+
+    toy.add_hierarchical_feature(
+        toy.correlations[3],
+        src=8, 
+        dest=(4, 7), 
+        weight=-1
+    )
+
+
+    encoder.update_scaling(toy.next())
+    train(encoder, cfg, toy)
+
+
 if __name__ == "__main__":
-    main()
+    main2()

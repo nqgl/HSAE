@@ -14,8 +14,8 @@ from collections import namedtuple
 from dataclasses import asdict
 from typing import Tuple, Callable, Optional, List
 from sae import AutoEncoder, AutoEncoderConfig
-import torch_sparse
-import torchsparsegradutils as tsgu
+# import torch_sparse
+# import torchsparsegradutils as tsgu
 
 class HierarchicalAutoEncoder(nn.Module):
     def __init__(self, cfg :HierarchicalAutoEncoderConfig, sae0 :Optional[AutoEncoder] = None):
@@ -306,7 +306,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         # print(acts.shape, flat_acts.shape)
         self.cache_flat(flat_acts, sae_idxs=sae_idxs, batches=batches, gate=gate)
         # flat_acts = flat_acts * dgate[flat_indices]
-        saes_out_flat = self.decode_flat(flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat)
+        saes_out_flat = self.decode_flat(gate[sae_idxs, batch_idxs] * flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat)
         print("saes_out_flat", saes_out_flat.shape)
         print("flat_indicies", flat_indices.shape)
         flatsize = saes_out_flat.shape[0]
@@ -439,6 +439,8 @@ def main():
     print(y0)
     print(y / y0)
     print("L0", hsae.sae_0.cached_l0_norm)
+    print("L0_1", hsae.saes[0].cached_l0_norm)
+    print("L1", hsae.sae_0.cached_l0_norm)
     gate = torch.zeros(bs, d).cuda()
     gate[0, 4] = 1
     y1 = hsae.saes[0](x, gate)

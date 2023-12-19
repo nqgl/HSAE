@@ -1,7 +1,9 @@
 # pair programming by Glen Taggart and Kieth Wynroe based mostly off of 
 # this work https://colab.research.google.com/drive/1MjF_5-msnSe5F9Qy4kEGSeqyYPE9_D2p?authuser=1#scrollTo=7WXAjU3mRak6
 # which I think was made by Bart Bussman, based off Neel Nanda's code.
-import novel_nonlinearities
+from nqgl.sae import novel_nonlinearities
+from nqgl.sae.sae_config import AutoEncoderConfig
+from nqgl.sae.setup_utils import SAVE_DIR, DTYPES
 
 import torch
 import torch.nn as nn
@@ -14,8 +16,6 @@ from functools import partial
 from collections import namedtuple
 from dataclasses import asdict
 from typing import Tuple, Callable
-from sae_config import AutoEncoderConfig
-from setup_utils import SAVE_DIR, DTYPES
 
 class AutoEncoder(nn.Module):
     def __init__(self, cfg :AutoEncoderConfig):

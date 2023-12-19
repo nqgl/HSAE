@@ -30,7 +30,7 @@ def train(encoder :HierarchicalAutoEncoder, cfg :HierarchicalAutoEncoderConfig, 
             acts = buffer.next()
             if l0_too_high:
                 # pass
-                acts = acts[:8]
+                acts = acts[:32]
             x_reconstruct = encoder(
                 acts, 
                 record_activation_frequency=True, 
@@ -63,7 +63,7 @@ def train(encoder :HierarchicalAutoEncoder, cfg :HierarchicalAutoEncoderConfig, 
                 torch.cuda.empty_cache()
             loss_dict = {"loss": loss.item(), "l2_loss": l2_loss.item(), "l1_loss": l1_loss.sum().item(), "l0_norm": l0_norm.item()}
             if i % 100 == 0:
-                if l0_norm.item() < 20:
+                if l0_norm.item() < 30:
                     l0_too_high = False
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
@@ -124,10 +124,10 @@ def linspace_l1(ae, l1_radius):
 cfg = HierarchicalAutoEncoderConfig(site="resid_pre", d_data=512, layer=1, gram_shmidt_trail = 512, num_to_resample = 4,
                                 l1_coeff=1e-4, dict_mult=2, batch_size=128, beta2=0.999, 
                                 nonlinearity=("relu", {}), flatten_heads=False, buffer_mult=128, buffer_refresh_ratio=0.5000,
-                                lr=3e-4, features_per_sae_per_layer=[None, 32],
+                                lr=5e-4, features_per_sae_per_layer=[None, 32],
                                 layer_cfg_params={
-                                    "l1_coeff" : 1e-4
-                                }
+                                    "l1_coeff" : 4e-4
+                                }, gate_mode="norm"
 )
 def main():
     # cfg = sae.post_init_cfg(ae_cfg)
