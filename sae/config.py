@@ -53,7 +53,7 @@ class AutoEncoderConfig:  # TODO some of these types are wrong. possibly some fi
     steps_between_resamples: int = 500
     
     # rescaling
-    data_rescale: float = 10
+    data_rescale: float = 1
     scale_in_forward: bool = True
 
     # bookkeeping
@@ -65,6 +65,7 @@ class AutoEncoderConfig:  # TODO some of these types are wrong. possibly some fi
     subshuffle: Optional[int] = None
 
     skip_post_init :bool = False
+    act_size :int = None
 
     def __post_init__(self):
         print("Post init")
@@ -73,6 +74,7 @@ class AutoEncoderConfig:  # TODO some of these types are wrong. possibly some fi
     def post_init_cfg(self):
         if self.skip_post_init:
             return self
+        self.act_size = self.d_data
         self.model_batch_size = self.batch_size // self.seq_len * 16
         self.buffer_size = self.batch_size * self.buffer_mult
         self.buffer_batches = self.buffer_size // self.seq_len

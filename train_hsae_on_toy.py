@@ -170,7 +170,10 @@ def main():
         batch_size=cfg.batch_size,
     )
     toy = ToyModel(toycfg)
+    from nqgl.sae.train_hsae import train as htrain
+    htrain(encoder, cfg, toy, model=None, project = "hsae_toy_model")
     train(encoder, cfg, toy)
+
 
 
 if __name__ == "__main__":

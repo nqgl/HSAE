@@ -96,6 +96,8 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
     ):
         self.cached_gate = gate
         self.prev_layer_L0 = prev_sae.cached_l0_norm if prev_sae is not None else None
+        # if dense:
+        #     gate = torch.zeros_like(gate)
         return self.sparse_forward(x, gate, **cache_kwargs)
 
     def get_loss(self):

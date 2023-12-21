@@ -77,7 +77,7 @@ class BaseSAE(nn.Module, ABC):
         import glob
 
         vname = str(version) + "_" + cls.sae_type if not omit_type else str(version)
-        vname = vname + "_" + name if name is not None else vname
+        vname = "_" + vname + "_" + name if name is not None else vname
         if cfg is None:
             cfg_search = str(save_dir) + f"/{vname}*_cfg.json"
             logging.info("seeking", cfg_search)

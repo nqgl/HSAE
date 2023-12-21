@@ -11,7 +11,7 @@ def get_recons_loss(model, encoder, buffer, num_batches=5, local_encoder=None):
     loss_list = []
     for i in range(num_batches):
         tokens = buffer.all_tokens[
-            torch.randperm(len(buffer.all_tokens))[: encoder.cfg.model_batch_size]
+            torch.randperm(len(buffer.all_tokens))[: encoder.cfg.model_batch_size//16]
         ]
         loss = model(tokens, return_type="loss")
         recons_loss = model.run_with_hooks(
@@ -81,11 +81,14 @@ def replacement_hook(acts, hook, encoder):
     if encoder.cfg.flatten_heads:
         n_head, d_head = acts.shape[-2:]
         acts = einops.rearrange(acts, "... n_head d_head -> ... (n_head d_head)")
-    acts_shape = acts.shape
-    acts = acts.reshape(-1, encoder.cfg.act_size)
+    if True:
+        acts_shape = acts.shape
+        acts = acts.reshape(-1, encoder.cfg.act_size)
     mlp_post_reconstr = encoder(acts.reshape(-1, encoder.cfg.act_size))
-    acts = acts.reshape(acts_shape)
-    mlp_post_reconstr = mlp_post_reconstr.reshape(acts_shape)
+    
+    if True:
+        acts = acts.reshape(acts_shape)
+        mlp_post_reconstr = mlp_post_reconstr.reshape(acts_shape)
     if encoder.cfg.flatten_heads:
         mlp_post_reconstr = einops.rearrange(
             mlp_post_reconstr,

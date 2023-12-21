@@ -154,7 +154,7 @@ cfg = AutoEncoderConfig(
     layer=1,
     gram_shmidt_trail=512,
     num_to_resample=4,
-    l1_coeff=35e-5,
+    l1_coeff=10e-4,
     dict_mult=2,
     batch_size=1024,
     beta2=0.999,
@@ -163,8 +163,30 @@ cfg = AutoEncoderConfig(
     flatten_heads=False,
     buffer_mult=128 * 16 * 7,
     buffer_refresh_ratio=0.25,
-    lr=1e-4,
+    lr=3e-5,
+    data_rescale=20 ** 0.5
 )  # original 3e-4 8e-4 or same but 1e-3 on l1
+
+
+# parameters for the run that was looking pretty good
+# cfg = AutoEncoderConfig(
+#     site="resid_pre",
+#     d_data=512,
+#     layer=1,
+#     gram_shmidt_trail=512,
+#     num_to_resample=4,
+#     l1_coeff=10e-4,
+#     dict_mult=2,
+#     batch_size=1024,
+#     beta2=0.999,
+#     subshuffle=16,
+#     nonlinearity=("relu", {}),
+#     flatten_heads=False,
+#     buffer_mult=128 * 16 * 7,
+#     buffer_refresh_ratio=0.25,
+#     lr=1e-4,
+#     data_rescale=20 ** 0.5
+# )  # original 3e-4 8e-4 or same but 1e-3 on l1
 
 
 def main():

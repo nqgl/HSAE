@@ -20,6 +20,11 @@ parser.add_argument(
 parser.add_argument(
     "command", type=str, help="Command to run on remote machine", nargs="+"
 )
+parser.add_argument(
+    "--export",
+    action="store_true",
+    help="Export PYTHONPATH to include ~/",
+)
 #export PYTHONPATH=~/:$PYTHONPATH; python3 train_hsae.py
 #mkdir nqgl; mv modified-SAE sae; mv sae nqgl/sae; ln -s nqgl/sae; mv sae modified-SAE
 args = parser.parse_args()
@@ -33,7 +38,9 @@ if not args.no_cd and not args.local:
 else:
     cmd = command
 
-
+if args.export:
+    cmd = f"export PYTHONPATH=~/:$PYTHONPATH; {cmd}"
+    
 if args.local:
     if args.pkill:
         raise Exception("Can't pkill root locally.")

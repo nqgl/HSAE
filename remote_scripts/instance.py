@@ -40,6 +40,8 @@ class Instance:
         self.sync_code()
         self.run("mkdir -p ~/workspace/data")
         self.run("mkdir -p /workspace/data")
+        #
+        self.run("mkdir ~/nqgl; cd ~/nqgl; ln -s ~/modified-SAE ~/nqgl/sae")
 
     def label(self):
         if str(self.id) == self.name:

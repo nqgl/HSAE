@@ -8,37 +8,46 @@ import wandb
 import tqdm
 import torch
 import time
+from typing import Optional
+
+WARMUP_STEPS = 4000
 
 
 def train(
     encoder: HierarchicalAutoEncoder,
     cfg: HierarchicalAutoEncoderConfig,
     buffer: Buffer,
-    model: HookedTransformer,
+    model: Optional[HookedTransformer],
+    project = "hsae_test"
 ):
     wandb.login(key="0cb29a3826bf031cc561fd7447767a3d7920d888", relogin=True)
     t0 = time.time()
     # buffer.freshen_buffer(fresh_factor=0.5)
     try:
-        run = wandb.init(project="hsae_test", entity="hsae_all", config=cfg)
+        run = wandb.init(project=project, entity="hsae_all", config=cfg)
         # run = wandb.init(project="autoencoders", entity="sae_all", config=cfg, mode="disabled")
 
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
         # encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
+        lr_adj = cfg.lr/50
         encoder_optim = torch.optim.Adam(
             encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2)
         )
         recons_scores = []
         act_freq_scores_list = []
         print("starting")
-        l0_too_high = True
+        l0_too_high = False
         for i in tqdm.trange(num_batches):
             # i = i % buffer.all_tokens.shape[0]
+            # if i < WARMUP_STEPS:
+            #     for p in encoder_optim.param_groups:
+            #         p["lr"] = (cfg.lr * i + lr_adj * (WARMUP_STEPS - i))  / WARMUP_STEPS
+
             acts = buffer.next()
-            if l0_too_high:
-                # pass
-                acts = acts[:32]
+            # if l0_too_high:
+            #     # pass
+            #     acts = acts[:32]
             x_reconstruct = encoder(
                 acts,
                 record_activation_frequency=True,
@@ -71,19 +80,13 @@ def train(
             # if i % 100 == 99:
             #     encoder.re_init_neurons_gram_shmidt(x.float() - x_reconstruct.float())
             loss = encoder.get_loss()
-            l2_loss = encoder.cached_l2_loss.mean()
-            l1_loss = encoder.cached_l1_loss.mean()
-            l0_norm = (
-                encoder.cached_l0_norm.mean()
-            )  # TODO condisder turning this off if is slows down calculation
-            # scaler.scale(loss).backward()
             loss.backward()
             encoder.make_decoder_weights_and_grad_unit_norm()
             # scaler.step(encoder_optim)
             # scaler.update()
             encoder_optim.step()
             encoder_optim.zero_grad()
-            if i % 200 == 99:
+            if i % 200 == 101:
                 # waiting = encoder.neurons_to_be_reset.shape[0]
                 # wandb.log(
                 #     {"neurons_waiting_to_reset": encoder.neurons_to_be_reset.shape[0]}
@@ -93,16 +96,22 @@ def train(
                     encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2)
                 )
                 torch.cuda.empty_cache()
-            loss_dict = {
-                "loss": loss.item(),
-                "l2_loss": l2_loss.item(),
-                "l1_loss": l1_loss.sum().item(),
-                "l0_norm": l0_norm.item(),
-            }
-            if i % 100 == 0:
-                if l0_norm.item() < 30:
-                    l0_too_high = False
+            # loss_dict = {
+            #     "loss": loss.item(),
+            #     "l2_loss": l2_loss.item(),
+            #     "l1_loss": l1_loss.sum().item(),
+            #     "l0_norm": l0_norm.item(),
+            # }
+            # if i % 100 == 0:
+            #     if l0_norm.item() < 30:
+            #         l0_too_high = False
             if (i) % 100 == 0:
+                l2_loss = encoder.cached_l2_loss.mean()
+                l1_loss = encoder.cached_l1_loss.mean()
+                l0_norm = (
+                    encoder.cached_l0_norm.mean()
+                )  
+                
                 loss_dict = {
                     "loss": loss.item(),
                     "l2_loss": l2_loss.item(),
@@ -118,6 +127,7 @@ def train(
                     }
                 )
 
+                # del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
                 for i in range(len(encoder.saes)):
                     sae = encoder.saes[i]
                     l1_loss = encoder.saes[i].cached_l1_loss
@@ -127,14 +137,13 @@ def train(
                         {
                             f"SAE_{i + 1} l1_loss": l1_loss.sum().item(),
                             f"SAE_{i + 1} l0_norm": l0_norm.item(),
-                            f"SAE_{i + 1} queued for reset": queued.shape[0],
+                            f"SAE_{i + 1} queued for reset": queued,
                         }
                     )
 
             if i % 1000 == 0:
                 wandb.log({"mse_contribs": encoder.loss_contributions(acts)})
-            del loss, x_reconstruct, l2_loss, l1_loss, acts, l0_norm
-            if (i + 10) % 1000 == 0 and not l0_too_high:
+            if (i + 10) % 2000 == 0 and not l0_too_high and not model is None:
                 x = get_recons_loss(
                     model, encoder, buffer, local_encoder=encoder, num_batches=1
                 )
@@ -155,28 +164,17 @@ def train(
                         #     "total time" : time.time() - t0,
                     }
                 )
-            if i == 13501999:
+            if i == 3100:
                 encoder.reset_activation_frequencies()
-            elif i % 15000 == 13501999 and i > 1500:
+            elif i % 8000 == 3100 and i > 1500:
                 encoder.save(name=run.name)
-                t1 = time.time()
-                # freqs = get_freqs(model, encoder, buffer, 50, local_encoder=encoder)
-                freqs = (
-                    encoder.neuron_activation_frequency
-                    / encoder.steps_since_activation_frequency_reset
-                )
-                to_be_reset = freqs < 10 ** (-5.5)
-                print("Resetting neurons!", to_be_reset.sum())
-                if to_be_reset.sum() > 0:
-                    encoder.neurons_to_reset(to_be_reset)
-                    # re_init(model, encoder, buffer, to_be_reset)
-                wandb.log(
-                    {
-                        "reset_neurons": to_be_reset.sum(),
-                        "time_for_neuron_reset": time.time() - t1,
-                    }
-                )
-                encoder.reset_activation_frequencies()
+                # TODO resample
+                # freqs = encoder.neuron_activation_frequency / encoder.steps_since_activation_frequency_reset
+                encoder.resampling_check()
+                # print("Resetting neurons!", to_be_reset.sum())
+                #     # re_init(model, encoder, buffer, to_be_reset)
+                # wandb.log({"reset_neurons": to_be_reset.sum(), "time_for_neuron_reset": time.time() - t1})
+                # encoder.reset_activation_frequencies()
     finally:
         encoder.save()
 
@@ -199,17 +197,20 @@ cfg = HierarchicalAutoEncoderConfig(
     gram_shmidt_trail=512,
     num_to_resample=4,
     l1_coeff=1e-4,
-    dict_mult=2,
-    batch_size=128,
+    dict_mult=1,
+    batch_size=256,
     beta2=0.999,
     nonlinearity=("relu", {}),
     flatten_heads=False,
     buffer_mult=128,
     buffer_refresh_ratio=0.5000,
-    lr=5e-4,
+    lr=1e-4,
     features_per_sae_per_layer=[None, 32],
-    layer_cfg_params={"l1_coeff": 4e-4},
-    gate_mode="norm",
+    data_rescale=20**0.5,
+    layer_cfg_params={"l1_coeff":3e-4, "data_rescale" : 1},
+    gate_mode="acts",
+    # lower_layer_act_penalize_pre_gate = True,
+
 )
 
 

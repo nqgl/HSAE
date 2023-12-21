@@ -15,6 +15,30 @@ import types
 
 # import torch_sparse
 # import torchsparsegradutils as tsgu
+# @staticmethod
+def call_method_on_layers(
+    function :Callable, 
+    preprocess=lambda s, *a, **k : (a, k)
+) -> Callable:
+
+    funct = lambda s, *a, **k : function(s, *a, **k)
+    if preprocess is True:
+        # funct = lambda s, *a, **k : function(s, *a, **k)
+        return lambda f : (
+            call_method_on_layers(
+                function=f,
+                preprocess=funct
+            )
+        )
+
+    function_name = function.__name__
+    def wrapper(self, *args, **kwargs):
+        args, kwargs = preprocess(self, *args, **kwargs)
+        out = [self.sae_0.__getattribute__(function_name)(*args, **kwargs)]
+        for sae in self.saes:
+            out.append(sae.__getattribute__(function_name)(*args, **kwargs))
+        return funct(self, out, *args, **kwargs)
+    return wrapper
 
 
 class HierarchicalAutoEncoder(BaseSAE, nn.Module):
@@ -61,7 +85,11 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
         for sae in self.saes:
             x_ = x if not self.cfg.sublayers_train_on_error else x - x_n
             gate = self.gate(acts)
-            x_next = sae(x_, gate, dense=dense, prev_sae=prev)
+            x_next = sae(
+                x_, 
+                gate, 
+                dense=prev.cached_l0_norm > 50, 
+                prev_sae=prev)
             # print("x_next", x_next.shape)
             # print("x_n", x_n.shape)
             # print("x_n", x_n.shape)
@@ -115,7 +143,7 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
         contrib = mses - mse
         d = {}
         for i in range(len(x_i)):
-            d[f"sae{i} mse contrib"] = contrib[i] / sum(contrib)
+            d[f"sae{i} mse contrib"] = contrib[i] / mse
         return d
 
 
@@ -148,30 +176,6 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
     #     lambda *a, **k: f(**a, **kwargs)
 
 
-    @staticmethod
-    def call_method_on_layers(
-        function :Callable, 
-        preprocess=lambda s, *a, **k : (a, k)
-    ) -> Callable:
-
-        funct = lambda s, *a, **k : function(s, *a, **k)
-        if preprocess is True:
-            # funct = lambda s, *a, **k : function(s, *a, **k)
-            return lambda f : (
-                HierarchicalAutoEncoder.call_method_on_layers(
-                    function=f,
-                    preprocess=funct
-                )
-            )
-
-        function_name = function.__name__
-        def wrapper(self, *args, **kwargs):
-            args, kwargs = preprocess(self, *args, **kwargs)
-            out = [self.sae_0.__getattribute__(function_name)(*args, **kwargs)]
-            for sae in self.saes:
-                out.append(sae.__getattribute__(function_name)(*args, **kwargs))
-            return funct(self, out, *args, **kwargs)
-        return wrapper
 
 
 
