@@ -1,8 +1,10 @@
 import v1solo.osae as osae
 from v1solo.osae import AutoEncoder, AutoEncoderConfig
+
 # import __main__
 # setattr(__main__, "AutoEncoder", osae.AutoEncoder)
 import torch
+
 itern = None
 ae = osae.AutoEncoder.load("./models", "sae_v_2_id_no-id", iter=itern)
 ae.cuda()
@@ -33,13 +35,14 @@ for i in range(20, 15, -1):
 
     # Plotting the bar graph
     plt.bar(range(len(result)), result.cpu().detach().numpy())
-    plt.xlabel('Index')
-    plt.ylabel('Value')
-    plt.title('m @ f1')
+    plt.xlabel("Index")
+    plt.ylabel("Value")
+    plt.title("m @ f1")
     plt.show()
 # heatmap of m @ f
 features_similarity = m @ f.T
 import seaborn as sns
+
 max_args = features_similarity.argmax(dim=-1)
 argsort_max = max_args.argsort()
 features_similarity = features_similarity[argsort_max, :]
@@ -53,7 +56,6 @@ vm = vm @ m
 vin = ae.encode(vm)
 
 
-
 import matplotlib.pyplot as plt
 
 # Your existing code...
@@ -65,8 +67,7 @@ print(sum(vin))
 plt.bar(range(len(result)), result.cpu().detach().numpy())
 for i in range(200, 0, -1):
     plt.plot(vin[i, :].cpu().detach().numpy(), label=f"{i}")
-plt.xlabel('Index')
-plt.ylabel('Value')
-plt.title('m @ f1')
+plt.xlabel("Index")
+plt.ylabel("Value")
+plt.title("m @ f1")
 plt.show()
-

@@ -20,8 +20,6 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["WANDB_NOTEBOOK_NAME"] = "test.py"
 
 
-
-
 sweep_config = SweepConfig(
     parameters=Hyperparameters(
         activation_resampler=ActivationResamplerHyperparameters(

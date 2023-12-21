@@ -7,28 +7,27 @@ import os
 import json
 from dataclasses import dataclass
 import v1solo.orthonormal as orthonormal
+
+
 @dataclass
 class AutoEncoderConfig:
-    lr :Union[float, torch.Tensor]
-    d_act :int
-    d_dict :int
-    l1_coeff :Optional[Union[float, torch.Tensor]]
-    device :str = "cuda"
-    ae_id :str = "no-id"
-    l0l1 :bool = True
-    l0l1_coeff :float = 0.01
-    lo_coeff :float = 10
-    l1_half_coeff :float = 0
+    lr: Union[float, torch.Tensor]
+    d_act: int
+    d_dict: int
+    l1_coeff: Optional[Union[float, torch.Tensor]]
+    device: str = "cuda"
+    ae_id: str = "no-id"
+    l0l1: bool = True
+    l0l1_coeff: float = 0.01
+    lo_coeff: float = 10
+    l1_half_coeff: float = 0
 
 
-
-
-
-def ratio_nice_str(f :float):
+def ratio_nice_str(f: float):
     r = f.as_integer_ratio()
     while r[1] > 100 or r[0] > 100:
         r = (r[0] // 2, r[1] // 2)
-    
+
     return f"{r[0]}-{r[1]}"
 
 
@@ -40,12 +39,18 @@ class AutoEncoder(nn.Module):
         self.dd_lin = nn.Linear(cfg.d_dict, cfg.d_dict, bias=False)
         # self.decoder = orthonormal.OrthLinearStack(cfg.d_dict, cfg.d_act, bias=False)
         # self.project_out = orthonormal.OrthLinearStack(cfg.d_act, cfg.d_act, bias=False)
-        self.decoder = orthonormal.RowNormPenalizedLinear(cfg.d_dict, cfg.d_act, bias=False)
-        self.project_out = orthonormal.OrthPenalizedLinear(cfg.d_act, cfg.d_act, bias=False)
+        self.decoder = orthonormal.RowNormPenalizedLinear(
+            cfg.d_dict, cfg.d_act, bias=False
+        )
+        self.project_out = orthonormal.OrthPenalizedLinear(
+            cfg.d_act, cfg.d_act, bias=False
+        )
         # self.project_out = orthonormal.NoOpModule()
 
-        self.cfg :AutoEncoderConfig = cfg
-        self.alive_neurons = torch.zeros(cfg.d_dict, dtype=torch.bool, device=cfg.device)
+        self.cfg: AutoEncoderConfig = cfg
+        self.alive_neurons = torch.zeros(
+            cfg.d_dict, dtype=torch.bool, device=cfg.device
+        )
         self.acts_cached = None
         self.l1_coeffs = cfg.l1_coeff
         self.b_d = nn.Parameter(torch.zeros(cfg.d_act, device=cfg.device))
@@ -53,55 +58,53 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x):
         return self.decode(self.encode(x))
-    
+
     def encode(self, x):
         x = x - self.b_d
         x = self.project_in(x)
         x = self.encoder(x)
         x = self.dd_lin(x)
         # x = (gradcool_functions.undying_relu_2phases(x + self.b_e, l = 0.01) \
-        
+
         # x = gradcool_functions.undying_relu(x + self.b_e, l = 0.01, k = 0.01)
 
-        x = novel_nonlinearities.undying_relu(x + self.b_e, l = 0.01, k = 1)
+        x = novel_nonlinearities.undying_relu(x + self.b_e, l=0.01, k=1)
         # x = F.relu(x + self.b_e)
         # x = gradcool_functions.undying_relu_2phase_leaky_gradient(x + self.b_e, l = 0.0001)
         self.acts_cached = x
         return x
 
-    
     def decode(self, x):
         x = self.decoder(x)
         x = self.project_out(x)
         x = x + self.b_d
         return x
-    
+
     # def norm_decoder(self):
     #     self.decoder.weight.data = F.normalize(self.decoder.weight.data, dim=-1)
 
-
-    def get_l1_loss(self, acts = None):
+    def get_l1_loss(self, acts=None):
         acts = self.acts_cached if acts is None else acts
         l1 = torch.mean(torch.abs(acts), dim=-2)
         assert l1.shape[-1] == self.cfg.d_dict
 
         return l1
 
-    def get_l0_loss(self, acts = None):
+    def get_l0_loss(self, acts=None):
         acts = self.acts_cached if acts is None else acts
         l0 = (acts != 0).float().mean(dim=-2)
         return l0
-    
-    def get_l0l1_loss(self, acts = None, n = 1):
+
+    def get_l0l1_loss(self, acts=None, n=1):
         if self.cfg.l0l1_coeff == 0:
             return torch.tensor(0, device=self.cfg.device)
         acts = self.acts_cached if acts is None else acts
-        l0 = (acts.detach() != 0).float().sum(dim = -1)
-        l0_multiplier = torch.max(torch.tensor(0, device = self.cfg.device), l0 - n)
-        l1 = torch.mean(torch.abs(acts), dim=-1) 
+        l0 = (acts.detach() != 0).float().sum(dim=-1)
+        l0_multiplier = torch.max(torch.tensor(0, device=self.cfg.device), l0 - n)
+        l1 = torch.mean(torch.abs(acts), dim=-1)
         return torch.mean(l0_multiplier * l1) * self.cfg.l0l1_coeff
-    
-    def get_l1_half_loss(self, acts = None):
+
+    def get_l1_half_loss(self, acts=None):
         if self.cfg.l1_half_coeff == 0:
             return torch.tensor(0, device=self.cfg.device)
         else:
@@ -113,14 +116,18 @@ class AutoEncoder(nn.Module):
 
             return torch.mean(l1_half) * self.cfg.l1_half_coeff
 
-    def penalties(self, lo = True):
+    def penalties(self, lo=True):
         if lo:
-            return (self.decoder.penalty() + self.project_out.penalty()) * self.cfg.lo_coeff, (self.get_l1_loss() * self.l1_coeffs).sum()
+            return (
+                self.decoder.penalty() + self.project_out.penalty()
+            ) * self.cfg.lo_coeff, (self.get_l1_loss() * self.l1_coeffs).sum()
         else:
-            return torch.tensor(0, device=self.cfg.device), (self.get_l1_loss() * self.l1_coeffs).sum()
+            return (
+                torch.tensor(0, device=self.cfg.device),
+                (self.get_l1_loss() * self.l1_coeffs).sum(),
+            )
 
-
-    def save(self, directory, version, stats = None):
+    def save(self, directory, version, stats=None):
         # TODO add width multiuplier to name
 
         l1_coeff = self.cfg.l1_coeff
@@ -134,7 +141,17 @@ class AutoEncoder(nn.Module):
         if not os.path.exists(os.path.join(directory, folder_str)):
             os.makedirs(os.path.join(directory, folder_str))
         modelfolder = os.path.join(directory, folder_str)
-        iter = max([int(f.split(".")[1]) for f in os.listdir(modelfolder) if f.startswith("model")], default=0) + 1
+        iter = (
+            max(
+                [
+                    int(f.split(".")[1])
+                    for f in os.listdir(modelfolder)
+                    if f.startswith("model")
+                ],
+                default=0,
+            )
+            + 1
+        )
         model_name = os.path.join(modelfolder, f"model.{iter}.pt")
         config_name = os.path.join(modelfolder, f"config.{iter}.json")
         torch.save(self, model_name)
@@ -148,16 +165,22 @@ class AutoEncoder(nn.Module):
                 else:
                     json.dump(stats, f)
         return iter
-    
+
     @classmethod
-    def load(cls, directory, folder_str, iter = None):
+    def load(cls, directory, folder_str, iter=None):
         # folder_str = f"sae_id_{l1_str}_{ratio_nice_str(lr)}_{str(version)}"
         # if isinstance(l1_coeff, torch.Tensor):
         #     l1_str = "tensor"
         # else:
         #     l1_str = ratio_nice_str(l1_coeff)
         if iter is None:
-            iter = max([int(f.split(".")[1]) for f in os.listdir(os.path.join(directory, folder_str)) if f.startswith("model")])
+            iter = max(
+                [
+                    int(f.split(".")[1])
+                    for f in os.listdir(os.path.join(directory, folder_str))
+                    if f.startswith("model")
+                ]
+            )
         model_name = os.path.join(directory, folder_str, f"model.{iter}.pt")
         config_name = os.path.join(directory, folder_str, f"config.{iter}.json")
         with open(config_name, "r") as f:
@@ -165,11 +188,17 @@ class AutoEncoder(nn.Module):
         ae = torch.load(model_name)
         ae.cfg = cfg
         return ae
-    
+
     @staticmethod
-    def load_stats(directory, folder_str, iter = None):
+    def load_stats(directory, folder_str, iter=None):
         if iter is None:
-            iter = max([int(f.split(".")[1]) for f in os.listdir(os.path.join(directory, folder_str)) if f.startswith("model")])
+            iter = max(
+                [
+                    int(f.split(".")[1])
+                    for f in os.listdir(os.path.join(directory, folder_str))
+                    if f.startswith("model")
+                ]
+            )
         stats_name = os.path.join(directory, folder_str, f"stats.{iter}.json")
         with open(stats_name, "r") as f:
             stats = json.load(f)
@@ -190,7 +219,7 @@ def find_maximizing_vec_length(ae, d_dict, device):
         loss = -1 * torch.mean(ae.decode(F.normalize(v_2max, dim=-1)).norm(dim=-1))
         if i % 100 == 0:
             print(-1 * loss.item())
-        
+
         # loss += torch.mean(torch.pow(v_2max.norm(dim=-1) - 1, 2))
         # loss = torch.mean(torch.pow(ae.decode(v) - 1, 2))
         loss.backward()
@@ -201,11 +230,13 @@ def find_maximizing_vec_length(ae, d_dict, device):
     vv = ae.decode(F.normalize(v_2max, dim=-1)).norm(dim=-1)
     return torch.max(vv).item()
 
-def show_heatmap_of_similarity(m, ae, encoder = True):
+
+def show_heatmap_of_similarity(m, ae, encoder=True):
     import seaborn as sns
     import torch
     import matplotlib.pyplot as plt
-    v = torch.eye(ae.cfg.d_dict, device="cuda")    
+
+    v = torch.eye(ae.cfg.d_dict, device="cuda")
     f = ae.decode(v)
     # features, d_act -> features, d_dict
     if encoder:
@@ -225,8 +256,10 @@ def show_heatmap_of_similarity(m, ae, encoder = True):
     sns.heatmap(features_similarity.cpu().detach().numpy())
     plt.pause(2)
 
+
 def main():
     import time
+
     # import matplotlib.pyplot as plt
     device = torch.device("cuda")
     d_act = 400
@@ -234,8 +267,18 @@ def main():
     d_dict = d_act * 8
     avg_n_features = 10
     l1_variability_radius = 0
-    l1_coeffs = torch.linspace(1 - l1_variability_radius, 1 + l1_variability_radius, d_dict, device=device)
-    cfg = AutoEncoderConfig(lr=3e-4, d_act=d_act, d_dict=d_dict, l1_coeff=0.2, l0l1_coeff=0, lo_coeff=100, l1_half_coeff=0)
+    l1_coeffs = torch.linspace(
+        1 - l1_variability_radius, 1 + l1_variability_radius, d_dict, device=device
+    )
+    cfg = AutoEncoderConfig(
+        lr=3e-4,
+        d_act=d_act,
+        d_dict=d_dict,
+        l1_coeff=0.2,
+        l0l1_coeff=0,
+        lo_coeff=100,
+        l1_half_coeff=0,
+    )
     ae = AutoEncoder(cfg)
     ae.l1_coeffs = l1_coeffs * cfg.l1_coeff
     ae.to(device)
@@ -253,7 +296,12 @@ def main():
     # plt.show()
     p_feature = avg_n_features / n_features
     p_feature_variability_radius = 0.5
-    p_feature_distribution = torch.linspace(p_feature * (1 + p_feature_variability_radius), p_feature * (1 - p_feature_variability_radius), n_features, device=device)
+    p_feature_distribution = torch.linspace(
+        p_feature * (1 + p_feature_variability_radius),
+        p_feature * (1 - p_feature_variability_radius),
+        n_features,
+        device=device,
+    )
     for i in range(n):
         x = torch.rand(250, n_features, device=device)
         b = 100
@@ -273,8 +321,18 @@ def main():
         l0l1 = ae.get_l0l1_loss(n=1)
         # l0l1 = torch.tensor(0)
         # if i % 10 == 0:
-        print(l2.item(), lo.item() / cfg.lo_coeff, l1.item() / cfg.l1_coeff, l0l1.item(), i)
-        print(ae.get_l0_loss().sum().item(), x_nonzero, torch.count_nonzero(x, dim=-1).float().mean().item())
+        print(
+            l2.item(),
+            lo.item() / cfg.lo_coeff,
+            l1.item() / cfg.l1_coeff,
+            l0l1.item(),
+            i,
+        )
+        print(
+            ae.get_l0_loss().sum().item(),
+            x_nonzero,
+            torch.count_nonzero(x, dim=-1).float().mean().item(),
+        )
         loss = l2 * 1 + lo + l1 + l0l1
         loss += ae.get_l1_half_loss()
         loss.backward()
@@ -310,7 +368,6 @@ def main():
             # # plt.plot(list(d["max_vec"].keys()), list(d["max_vec"].values()), label="max_vec")
             # plt.legend()
 
-
             # plt.subplot(3, 2, 2)
             # plt.plot(list(d["l0l1"].keys()), list(d["l0l1"].values()), label="l0l1")
             # plt.plot(list(d["l0"].keys()), list(d["l0"].values()), label="l0")
@@ -326,13 +383,12 @@ def main():
             # plt.plot(list(d["max_vec"].keys()), list(d["max_vec"].values()), label="max_vec")
             # plt.legend()
 
-
             # plt.draw()
             # plt.pause(1)
 
         if i % 10000 == 0 and i > 0:
             d["max_vec"][i] = find_maximizing_vec_length(ae, d_dict, device)
-            ae.save("/home/g/mats/sae/models", 2, {"d":d, "m" : m.tolist(), "i":i})
+            ae.save("/home/g/mats/sae/models", 2, {"d": d, "m": m.tolist(), "i": i})
             optim.zero_grad()
     ae.save("/home/g/mats/sae/models", 2)
     t1 = time.time()
@@ -340,15 +396,15 @@ def main():
     y = ae(x)
     print("l2", torch.mean((y - x).norm(dim=-1)).item())
     print("l0", ae.get_l0_loss(x).float().mean().item())
-    v = torch.randn(100, d_dict, device = device)
+    v = torch.randn(100, d_dict, device=device)
     v = torch.abs(v)
     v = F.normalize(v, dim=-1)
     print("norm", ae.decoder(v).norm(dim=-1))
     print("norm", ae.decode(v).norm(dim=-1))
-    #TODO check orth for just one block
-    vb = torch.randn(100, d_act, device = device)
+    # TODO check orth for just one block
+    vb = torch.randn(100, d_act, device=device)
     vb = F.normalize(vb, dim=-1)
-    v = torch.zeros(100, d_dict, device = device)
+    v = torch.zeros(100, d_dict, device=device)
     v[:, :d_act] = vb
     print("norm", ae.decoder(v).shape)
     print(v.shape)
@@ -361,9 +417,8 @@ def main():
     # print("d2norm_proj_only", ae.project_out(vb).norm(dim=-2))
     print("time", t1 - t0)
 
-
-    
     # print("a norm maximizer", ae.decoder(v_2max), v_2max)
+
 
 if __name__ == "__main__":
     main()

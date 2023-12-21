@@ -1,171 +1,107 @@
 from nqgl.sae.hsae.config import (
-    HierarchicalAutoEncoderConfig, 
-    HierarchicalAutoEncoderLayerConfig
+    HierarchicalAutoEncoderConfig,
+    HierarchicalAutoEncoderLayerConfig,
 )
-from sae.model import AutoEncoder, AutoEncoderConfig
-from setup_utils import DTYPES
+from nqgl.sae.sae.model import AutoEncoder, AutoEncoderConfig
+from nqgl.sae.setup_utils import DTYPES
 import torch
 import torch.nn as nn
+import logging
+import torch.nn.functional as F
 
 
 class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
-    def __init__(self, 
-                 cfg :HierarchicalAutoEncoderLayerConfig, cfg_0 :HierarchicalAutoEncoderConfig):
+    sae_type = "HSAE_LAYER"
+    CONFIG = HierarchicalAutoEncoderLayerConfig
+
+    def __init__(
+        self,
+        cfg: HierarchicalAutoEncoderLayerConfig,
+        cfg_0: HierarchicalAutoEncoderConfig,
+    ):
         super().__init__(cfg)
-        self.cfg = cfg
+        self.cfg :HierarchicalAutoEncoderLayerConfig = cfg
         self.cfg_0 = cfg_0
 
         dtype = DTYPES[cfg_0.enc_dtype]
 
         self.b_dec = nn.Parameter(
-            torch.zeros(
-                self.cfg.n_sae,
-                self.cfg.d_data,
-                dtype=dtype
-            )
+            torch.zeros(self.cfg.n_sae, self.cfg.d_data, dtype=dtype)
         )
 
         self.W_enc = nn.Parameter(
             torch.nn.init.kaiming_uniform_(
                 torch.empty(
-                    self.cfg.n_sae,
-                    self.cfg.d_data,
-                    self.cfg.d_dict,
-                    dtype=dtype
+                    self.cfg.n_sae, self.cfg.d_data, self.cfg.d_dict, dtype=dtype
                 )
             )
         )
 
         self.b_enc = nn.Parameter(
-            torch.zeros(
-                self.cfg.n_sae,
-                self.cfg.d_dict,
-                dtype=dtype
-            )
+            torch.zeros(self.cfg.n_sae, self.cfg.d_dict, dtype=dtype)
         )
 
         self.W_dec = nn.Parameter(
             torch.nn.init.kaiming_uniform_(
                 torch.empty(
-                    self.cfg.n_sae,
-                    self.cfg.d_dict,
-                    self.cfg.d_data,
-                    dtype=dtype
+                    self.cfg.n_sae, self.cfg.d_dict, self.cfg.d_data, dtype=dtype
                 )
             )
         )
 
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
-
+        self.steps_since_activation_frequency_reset = torch.zeros(cfg.n_sae, device=self.cfg.device)
         self.to(self.cfg.device)
         self.prev_layer_L0 = None
+        self.neuron_activation_frequency = torch.zeros(
+            self.cfg.n_sae,
+            self.cfg.d_dict,
+            dtype=torch.float32,
+            device=self.cfg.device
+        )
+        self.cached_gate = None
 
-
-
-    def encode_flat(self, x, W_enc, b_dec, b_enc, cache_acts=False, cache_l0=False, record_activation_frequency=False):
+    def encode_flat(
+        self,
+        x,
+        W_enc,
+        b_dec,
+        b_enc
+    ):
         # batch, n_sae, d_data
         x_cent = x - b_dec
         # x_cent = x_cent.unsqueeze(-2)
-        print("\nmult", x_cent.shape, W_enc.shape)
+        logging.info("\nmult", x_cent.shape, W_enc.shape)
         # input()
         m = x_cent @ W_enc
         acts = self.nonlinearity(m + b_enc)
 
-        # print("x_cent", x_cent.shape)
-        # print("m", m.shape)
-        # print("acts", acts.shape)
+        # logging.info("x_cent", x_cent.shape)
+        # logging.info("m", m.shape)
+        # logging.info("acts", acts.shape)
         return acts
-
-
 
     def decode_flat(self, acts, W_dec, b_dec):
-        # print("acts shape:", acts.shape)
-        # print("W_dec shape:", W_dec.shape)
-        # print("b_dec shape:", b_dec.shape)
-        m =  acts @ W_dec
+        m = acts @ W_dec
         o = m + b_dec
-        # print(m.shape, o.shape)
         return o
 
-
-
-
-    def forward(self, x: torch.Tensor, gate: torch.Tensor, dense=True, prev_sae=None):
+    def forward(
+        self,
+        x: torch.Tensor,
+        gate: torch.Tensor,
+        dense=True,
+        prev_sae=None,
+        **cache_kwargs
+    ):
+        self.cached_gate = gate
         self.prev_layer_L0 = prev_sae.cached_l0_norm if prev_sae is not None else None
-        return self.ad_hoc_sparse2(x, gate)
-        if dense:
-            return self.dense(x, gate)
-        else:
-            print("sparse", x.shape)
-            return self.ad_hoc_sparse(x, gate)
+        return self.sparse_forward(x, gate, **cache_kwargs)
 
+    def get_loss(self):
+        return self.cached_l1_loss * self.cfg.l1_coeff
 
-
-    def dense(self, x: torch.Tensor, gate: torch.Tensor):
-        # x: (batches, d_data)
-        # gate: (batches, n_sae)
-
-        x = x.unsqueeze(-2).unsqueeze(-2) # b 1 1 d_data
-        b_dec = self.b_dec.unsqueeze(-2) # n_sae 1 d_data
-        # x: b, n_sae, 1 d_data
-        W_enc = self.W_enc # n_sae d_data d_dict
-        # x: b, n_sae, 1 d_dict
-        b_enc = self.b_enc.unsqueeze(-2) # n_sae 1 d_dict
-        # x: b, n_sae, 1, d_dict
-        W_dec = self.W_dec # n_sae d_dict d_data
-        # x: b, n_sae, 1, d_data
-        # print("layer parts", b_dec.shape, W_enc.shape, b_enc.shape, W_dec.shape)
-        # print("x", x.shape)
-        acts = self.encode_flat(x=x, W_enc=W_enc, b_dec=b_dec, b_enc=b_enc)
-        # print("acts", acts.shape)
-        self.cache(acts)
-        saes_out = self.decode_flat(acts, W_dec=W_dec, b_dec=b_dec)
-        # print("saes_out", saes_out.shape)
-        saes_out = saes_out * gate.unsqueeze(-1).unsqueeze(-1)
-        return saes_out.sum(dim=-2).sum(dim=-2)
-
-
-    def sparse(self, x: torch.Tensor, gate: torch.Tensor):
-        # x: (batches, d_data)
-        # gate: (batches, n_sae)
-        batch = x.shape[0]
-        d_data = self.cfg.d_data
-        d_dict = self.cfg.d_dict
-        sgate = gate.to_sparse().unsqueeze(-1).unsqueeze(-1)
-        x = sgate * x.unsqueeze(-2).unsqueeze(-2) # b 1 1 d_data
-        b_dec = (sgate * self.b_dec.unsqueeze(-2)).view(-1, 1, d_data) # n_sae 1 d_data
-        # x: b, n_sae, 1 d_data
-        W_enc = (sgate * self.W_enc).view(-1, d_data, d_dict) # n_sae d_data d_dict
-        # x: b, n_sae, 1 d_dict
-        b_enc = (sgate * self.b_enc.unsqueeze(-2), d_data, d_dict) # n_sae 1 d_dict
-        # x: b, n_sae, 1, d_dict
-        W_dec = (sgate * self.W_dec) # n_sae d_dict d_data
-        print("sparse?", W_dec.is_sparse)
-        # x: b, n_sae, 1, d_data
-        # print("layer parts", b_dec.shape, W_enc.shape, b_enc.shape, W_dec.shape)
-        # print("x", x.shape)
-        acts = self.encode_sparse(x=x, W_enc=W_enc, b_dec=b_dec, b_enc=b_enc)
-        # print("acts", acts.shape)
-        self.cache(acts)
-        saes_out = self.decode_sparse(acts, W_dec=W_dec, b_dec=b_dec)
-        # print("saes_out", saes_out.shape)
-        saes_out = saes_out * gate.unsqueeze(-1).unsqueeze(-1)
-        return saes_out.sum(dim=-2).sum(dim=-2)
-
-
-    def encode_sparse(self, x, W_enc, b_dec, b_enc, cache_acts=False, cache_l0=False, record_activation_frequency=False):
-        x_cent = x - b_dec
-        m = torch.sparse.mm(x, self.W_enc)
-        acts = self.nonlinearity(m + b_enc)
-
-        return acts
-    def decode_sparse(self, acts, W_dec, b_dec):
-        m = torch.sparse.mm(acts, W_dec)
-        o = m + b_dec
-        return o
-
-
-    def ad_hoc_sparse2(self, x: torch.Tensor, gate: torch.Tensor):
+    def sparse_forward(self, x: torch.Tensor, gate: torch.Tensor, **cache_kwargs):
         # x: (batches, d_data)
         # gate: (batches, n_sae)
         x_dumb_shape = x.shape
@@ -174,17 +110,9 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             gate = gate.reshape(-1, gate.shape[-1])
         batches = x.shape[0]
 
-        # x = self.scale(x)
-        gate = gate.unsqueeze(-1).unsqueeze(-1).transpose(0,1) # n_sae batches 1 1
+        gate = gate.unsqueeze(-1).unsqueeze(-1).transpose(0, 1)  # n_sae batches 1 1
         bgate = gate != 0
-        # gate = gate.to_sparse()
-        # print("flat_indices", flat_indices.shape)
-        # if flat_indices.shape[1]/batches > 100:
-        #     newgate = torch.zeros(batches, self.cfg.n_sae, device=self.cfg.device)
-        #     torch.multinomial(
 
-        # batches 1 d_data  *  n_sae batches 1 1
-        # -> n_sae batches 1 d_data
         x_s = (x.unsqueeze(-2) * bgate).to_sparse(2)
         flat_indices = x_s.indices()
         batch_idxs = flat_indices[1]
@@ -197,106 +125,258 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         b_enc_flat = self.b_enc[sae_idxs].unsqueeze(-2)
         W_dec_flat = self.W_dec[sae_idxs]
         b_dec_flat = self.b_dec[sae_idxs].unsqueeze(-2)
-        # print(W_enc.shape, b_enc.shape, W_dec.shape, b_dec.shape)
-        # print(self.W_enc.shape, self.b_enc.shape, self.W_dec.shape, self.b_dec.shape)
-        # print("x_flat", x_flat.shape)
-        flat_acts = self.encode_flat(x=x_flat, W_enc=W_enc_flat, b_dec=b_dec_flat, b_enc=b_enc_flat)
-        print("flat_acts", flat_acts.shape)
 
+        flat_acts = self.encode_flat(
+            x=x_flat, W_enc=W_enc_flat, b_dec=b_dec_flat, b_enc=b_enc_flat
+        )
 
-        # acts = acts.scatter_add(
-        #     0, 
-        #     flat_indices.unsqueeze(-1).unsqueeze(-1).expand(2, -1, self.cfg.n_sae, self.cfg.d_dict), 
-        #     flat_acts.reshape(-1, 1, self.cfg.d_dict)
-        # )
-        # acts[flat_indices] = flat_acts
-        # print(acts.shape, flat_acts.shape)
-        self.cache_flat(flat_acts, sae_idxs=sae_idxs, batches=batches, gate=gate)
-        # flat_acts = flat_acts * dgate[flat_indices]
-        saes_out_flat = self.decode_flat(gate[sae_idxs, batch_idxs] * flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat)
-        print("saes_out_flat", saes_out_flat.shape)
-        print("flat_indicies", flat_indices.shape)
+        acts = self.full_acts(flat_acts, flat_indices, batches)
+        self.cache(acts=acts, flat_acts=flat_acts, gate=gate, **cache_kwargs)
+
+        logging.info("flat_acts", flat_acts.shape)
+
+        saes_out_flat = self.decode_flat(
+            gate[sae_idxs, batch_idxs] * flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat
+        )
+
+        logging.info("saes_out_flat", saes_out_flat.shape)
+        logging.info("flat_indicies", flat_indices.shape)
+
         flatsize = saes_out_flat.shape[0]
-        print()
         z = torch.zeros(batches, self.cfg.d_data, device=self.cfg.device)
         bids = batch_idxs.reshape(flatsize, 1).expand(-1, self.cfg.d_data)
         sae_re = saes_out_flat.reshape(flatsize, self.cfg.d_data)
-        print("z", z.shape)
-        print("bids", bids.shape)
-        print("sae_re", sae_re.shape)
-        print("batch_id_max", batch_idxs.max())
+
+        logging.info("z", z.shape)
+        logging.info("bids", bids.shape)
+        logging.info("sae_re", sae_re.shape)
+        # logging.info("batch_id_max", batch_idxs.max())
+
         x_out = torch.scatter_add(
             torch.zeros(batches, self.cfg.d_data, device=self.cfg.device),
             0,
             batch_idxs.reshape(flatsize, 1).expand(-1, self.cfg.d_data),
-            saes_out_flat.reshape(flatsize, self.cfg.d_data)
+            saes_out_flat.reshape(flatsize, self.cfg.d_data),
         )
 
-        # x_reconstruct = self.unscale(x_out)
-        print("x_out", x_out.shape)
-        print(x_out.is_sparse)
-        # input()
-        # print("x_out sum", x_out.sum())
-        print(x_out[0].sum(), x_out[1].sum())
-        print(x_out[:, 0].sum(), x_out[:, 1].sum())
+        logging.info("x_out", x_out.shape)
+        logging.info(x_out.is_sparse)
+        logging.info(x_out[0].sum(), x_out[1].sum())
+        logging.info(x_out[:, 0].sum(), x_out[:, 1].sum())
         return x_out.reshape(x_dumb_shape)
 
-
-    def cache_flat(self, flat_acts, sae_idxs, batches, gate):
-        # TODO this currently does not translate to the >2 layer case 
-        # because acts are not cached full detail, they are stored
-        # summed along the batch axis
-        feat_acts = torch.scatter_add(
-            torch.zeros(self.cfg.n_sae, self.cfg.d_dict, device=self.cfg.device),
-            0,
-            sae_idxs.unsqueeze(-1).expand(-1, self.cfg.d_dict),
-            flat_acts.reshape(-1, self.cfg.d_dict)
+    def full_acts(self, flat_acts, flat_indices, batches):
+        acts = torch.zeros(
+            batches, self.cfg.n_sae, self.cfg.d_dict, device=self.cfg.device
         )
-
-        print("feat acts sum:", feat_acts.sum())
-
-        n_active_batches_per_head = (gate != 0).squeeze(-1).squeeze(-1).float().sum(dim=-1, keepdim=True)
-        mean_acts = feat_acts / (n_active_batches_per_head.reshape(-1, 1) + 1e-9)
-        self.cache(mean_acts)
-        self.cached_l0_norm = torch.count_nonzero(flat_acts) / flat_acts.shape[0]
-        self.cached_l1_loss = flat_acts.float().abs().sum() / batches
-
-
-
-    def get_loss(self):
-        return self.cached_l1_loss * self.cfg.l1_coeff
-
-
-    def cache(self, acts, cache_l0 = True, cache_acts = True):
-        # self.cached_l1_loss = acts.float().abs().sum(dim=-1).mean()
-        # self.cached_l0_norm = torch.count_nonzero(acts, dim=-1).float().mean() if cache_l0 else None
-        self.cached_acts = acts if cache_acts else None
-        record_activation_frequency = False
-        if record_activation_frequency:
-            activated = torch.mean((acts > 0).float(), dim=0)
-            activated = torch.count_nonzero(acts, dim=0) / acts.shape[0]
-            self.neuron_activation_frequency = activated + self.neuron_activation_frequency.detach()
-            self.steps_since_activation_frequency_reset += 1
+        acts[flat_indices[1], flat_indices[0]] = flat_acts.squeeze(-2)
         return acts
 
+    def cache(
+        self,
+        acts,
+        flat_acts,
+        gate,
+        cache_l0=True,
+        cache_acts=True,
+        record_activation_frequency=True,
+    ):
+        batches = acts.shape[0]
 
+        self.cached_l1_loss = flat_acts.float().abs().sum() / batches
+        self.cached_acts = acts if cache_acts else None
+        self.cached_l0_norm = torch.count_nonzero(flat_acts) / flat_acts.shape[0]
+
+        n_active_batches_per_head = (
+            (gate != 0).squeeze(-1).squeeze(-1).float().sum(dim=-1)
+        )
+
+        self.cached_l0_norms = (  # this is the per-head measure
+            torch.count_nonzero(acts, dim=-1).float().mean(dim=0)
+            / n_active_batches_per_head # TODO check if this is okay or if it needs to be unsqueezed
+            if cache_l0 else None
+        )
+        
+
+        if record_activation_frequency:
+            activated = (
+                torch.count_nonzero(acts, dim=0)
+                / acts.shape[0]
+            )
+            self.neuron_activation_frequency = (
+                activated + self.neuron_activation_frequency.detach()
+            )
+            
+            self.steps_since_activation_frequency_reset += (
+                # torch.ones_like *
+                n_active_batches_per_head
+            )
 
     @torch.no_grad()
-    def update_scaling(self, x :torch.Tensor):
+    def update_scaling(self, x: torch.Tensor):
         if self.cfg.sublayers_train_on_error:
             x_cent = x - x.mean(dim=0)
             # var = (x_cent ** 2).sum(dim=-1)
             # std = torch.sqrt(var).mean()
             std = x_cent.norm(dim=-1).mean()
-            self.std_dev_accumulation += std #x_cent.std(dim=0).mean() is p diferent I believe
+            self.std_dev_accumulation += (
+                std  # x_cent.std(dim=0).mean() is p diferent I believe
+            )
             self.std_dev_accumulation_steps += 1
-            self.scaling_factor = self.std_dev_accumulation / self.std_dev_accumulation_steps
+            self.scaling_factor = (
+                self.std_dev_accumulation / self.std_dev_accumulation_steps
+            )
 
-
-    # @torch.no_grad()
+    # @torch.no_grad
     def scale(self, x):
         return x * self.cfg.data_rescale
 
-    # @torch.no_grad()
+    # @torch.no_grad
     def unscale(self, x):
         return x / self.cfg.data_rescale
+
+    def dense(self, x: torch.Tensor, gate: torch.Tensor):
+        # x: (batches, d_data)
+        # gate: (batches, n_sae)
+
+        x = x.unsqueeze(-2).unsqueeze(-2)  # b 1 1 d_data
+        b_dec = self.b_dec.unsqueeze(-2)  # n_sae 1 d_data
+        # x: b, n_sae, 1 d_data
+        W_enc = self.W_enc  # n_sae d_data d_dict
+        # x: b, n_sae, 1 d_dict
+        b_enc = self.b_enc.unsqueeze(-2)  # n_sae 1 d_dict
+        # x: b, n_sae, 1, d_dict
+        W_dec = self.W_dec  # n_sae d_dict d_data
+        # x: b, n_sae, 1, d_data
+        # logging.info("layer parts", b_dec.shape, W_enc.shape, b_enc.shape, W_dec.shape)
+        # logging.info("x", x.shape)
+        acts = self.encode_flat(x=x, W_enc=W_enc, b_dec=b_dec, b_enc=b_enc)
+        # logging.info("acts", acts.shape)
+        self.cache(acts)
+        saes_out = self.decode_flat(acts, W_dec=W_dec, b_dec=b_dec)
+        # logging.info("saes_out", saes_out.shape)
+        saes_out = saes_out * gate.unsqueeze(-1).unsqueeze(-1)
+        return saes_out.sum(dim=-2).sum(dim=-2)
+
+
+
+
+    def re_init_neurons(self, x_diff, gate, norm_encoder_proportional_to_alive=True):
+        self.get_neuron_death_viable_samples()
+        ready = gate[:, self.neurons_to_be_reset[:, 0]]
+        has_data = ready.sum(dim=0) > 0
+        head_has_data = gate.sum(dim=0) > 0
+        heads_with_data = self.neurons_to_be_reset[has_data]
+        num_heads_with_data = (gate.sum(dim=0) > 0).sum()
+        indices_with_data = (
+            torch.arange(
+                0, 
+                self.neurons_to_be_reset.shape[0], 
+                device=self.cfg.device
+            )[has_data]
+        )
+
+
+        indices = torch.scatter(
+            torch.zeros(self.cfg.n_sae, dtype=torch.long, device=self.cfg.device) - 1,
+            0,
+            self.neurons_to_be_reset[:, 0][has_data],
+            torch.arange(0, self.neurons_to_be_reset.shape[0], device=self.cfg.device)[has_data]
+        )
+        i = indices[indices != -1]
+
+
+
+
+
+
+
+
+
+        indices = torch.zeros(num_heads_with_data, dtype=torch.long, device=self.cfg.device)
+        # idx_map_index_to_head = torch.zeros(num_heads_with_data, dtype=torch.long, device=self.cfg.device)
+        # idx_map_index_to_head[:] = torch.arange(0, self.cfg.n_sae, device=self.cfg.device)[head_has_data]
+        # idx_map_index_to_head = torch.argwhere(head_has_data).squeeze(-1)
+        # idx_map_head_to_index = torch.zeros(self.cfg.n_sae, dtype=torch.long, device=self.cfg.device)
+        # idx_map_head_to_index[idx_map_index_to_head] = torch.arange(0, num_heads_with_data, device=self.cfg.device)
+        # indices[
+        i = torch.scatter(
+            torch.zeros(self.cfg.n_sae, dtype=torch.long, device=self.cfg.device) - 1,
+            0,
+            heads_with_data[:, 1],
+            indices_with_data
+        )
+        indices = i[i != -1]
+        heads = self.neurons_to_be_reset[indices][:, 0]
+
+        dirs = (gate.transpose(-2, -1) @ x_diff)[heads]
+        neuron_mask = torch.zeros_like(self.neurons_to_be_reset[:, 0], dtype=torch.bool, device=self.cfg.device)
+        neuron_mask[indices] = True
+        assert dirs.shape[0] == neuron_mask.sum()
+        self.reset_neurons(dirs, neuron_mask, norm_encoder_proportional_to_alive)
+
+
+
+
+        # heads_to_reset = torch.zeros(self.cfg.n_sae, device=self.cfg.)
+        # used = torch.zeros(x_diff.shape[0], dtype=torch.bool, device=self.cfg.device)
+        # replace_mask = torch.zeros_like(self.neurons_to_be_reset[0], dtype=torch.bool, device=self.cfg.device)
+
+        # batches = gate.shape[0]
+        # for b in range(batches):
+            
+        # batch0 = ready[0]
+        # batch0_to_reset = self.neurons_to_be_reset[batch0]
+            
+    def reset_neurons(        
+        self, 
+        new_directions: torch.Tensor, 
+        replacement_mask: torch.Tensor,
+        norm_encoder_proportional_to_alive=True
+    ):
+
+        to_reset = self.neurons_to_be_reset[replacement_mask]
+        self.neurons_to_be_reset = self.neurons_to_be_reset[~replacement_mask]
+        if self.neurons_to_be_reset.shape[0] == 0:
+            self.neurons_to_be_reset = None
+        new_directions = F.normalize(new_directions, dim=-1) 
+        if norm_encoder_proportional_to_alive:
+            self.W_enc.data[to_reset[:, 0], :, to_reset[:, -1]] = (
+                (new_directions.T * self.alive_norm_along_feature_axis * 0.2).T
+            )
+        else:
+            self.W_enc.data[to_reset[:, 0], :, to_reset[:, -1]] = new_directions
+        self.W_dec.data[to_reset[:, 0], to_reset[:, 1]] = new_directions
+        self.b_enc.data[to_reset] = 0
+
+
+
+
+    @torch.no_grad
+    def re_init_neurons_gram_shmidt_precise_iterative_argmax(self, x_diff):
+        n_reset = min(x_diff.shape[0], self.cfg.d_data // 2, self.cfg.num_to_resample)
+        v_orth = torch.zeros_like(x_diff)
+        n_succesfully_reset = n_reset
+        for i in range(n_reset):
+            magnitudes = x_diff.norm(dim=-1)
+            i_max = torch.argmax(magnitudes)
+            v_orth[i] = x_diff[i_max]
+            for j in range(max(0, i - self.cfg.gram_shmidt_trail), i):
+                v_orth[i] -= (
+                    torch.dot(v_orth[j], v_orth[i])
+                    * v_orth[j]
+                    / torch.dot(v_orth[j], v_orth[j])
+                )
+            if v_orth[i].norm() < 1e-6:
+                n_succesfulselfly_reset = i
+                break
+            v_orth[i] = F.normalize(v_orth[i], dim=-1)
+            x_diff -= (
+                (x_diff @ v_orth[i]).unsqueeze(1)
+                * v_orth[i]
+                / torch.dot(v_orth[i], v_orth[i])
+            )
+            # v_ = x_diff[i] - v_bar * torch.dot(v_bar, x_diff[i])
+            # # logging.info(v_.shape)
+            # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
+        self.reset_neurons(v_orth[:n_succesfully_reset])

@@ -12,7 +12,10 @@ from torch.nn.parameter import Parameter
 
 from sparse_autoencoder.autoencoder.abstract_autoencoder import AbstractAutoencoder
 from sparse_autoencoder.autoencoder.components.linear_encoder import LinearEncoder
-from sparse_autoencoder.autoencoder.components.tied_bias import TiedBias, TiedBiasPosition
+from sparse_autoencoder.autoencoder.components.tied_bias import (
+    TiedBias,
+    TiedBiasPosition,
+)
 from sparse_autoencoder.autoencoder.components.unit_norm_decoder import UnitNormDecoder
 from sparse_autoencoder.tensor_types import Axis
 
@@ -71,9 +74,10 @@ class SparseHierarchicalAutoencoder(AbstractAutoencoder):
         self,
         n_input_features: int,
         n_learned_features: int,
-        geometric_median_dataset: Float[Tensor, Axis.INPUT_OUTPUT_FEATURE] | None = None,
-        layer_width = 1,
-        child_widths = [64]
+        geometric_median_dataset: Float[Tensor, Axis.INPUT_OUTPUT_FEATURE]
+        | None = None,
+        layer_width=1,
+        child_widths=[64],
     ) -> None:
         """Initialize the Sparse Autoencoder Model.
 
@@ -100,11 +104,6 @@ class SparseHierarchicalAutoencoder(AbstractAutoencoder):
                 child_widths=child_widths[1:],
                 layer_width=n_learned_features,
             )
-        
-                
-
-
-
 
         # Store the geometric median of the dataset (so that we can reset parameters). This is not a
         # parameter itself (the tied bias parameter is used for that), so gradients are disabled.
@@ -129,7 +128,9 @@ class SparseHierarchicalAutoencoder(AbstractAutoencoder):
             learnt_features=n_learned_features, decoded_features=n_input_features
         )
 
-        self._post_decoder_bias = TiedBias(self.tied_bias, TiedBiasPosition.POST_DECODER)
+        self._post_decoder_bias = TiedBias(
+            self.tied_bias, TiedBiasPosition.POST_DECODER
+        )
 
     def forward(
         self,
