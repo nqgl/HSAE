@@ -158,10 +158,20 @@ hidden_acts = np.array(activations).reshape(-1, sae1.cfg.d_dict * sae1.cfg.n_sae
 
 print(hidden_acts.shape)
 # %%
-feature_id = 1
-token_df = make_token_df(tokens)
-features = hidden_acts[:, feature_id]
-token_df["feature"] = utils.to_numpy(features)
-token_df.sort_values("feature", ascending=False).head(10).style.background_gradient("coolwarm")
+def show_random_highly_activating(activations, feature_id, percentile=90):
+    token_df = make_token_df(tokens)
+    features = activations[:, feature_id]
+    token_df["feature"] = utils.to_numpy(features)
+    #select all where feature > 0.0
+    token_df = token_df[token_df["feature"]>0]
+    #get the 50th percentile
+    percentile = np.percentile(token_df["feature"], percentile)
+    #select all where feature > 50th percentile
+    display(token_df[token_df["feature"]>percentile].sample(10).style.background_gradient("coolwarm"))
 
+# %%
+
+feature_id = 0
+try:
+    show_random_highly_activating(hidden_acts, feature_id, percentile=90)
 # %%
