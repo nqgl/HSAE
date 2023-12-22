@@ -22,7 +22,7 @@ init_to_same_performance = {
 
 def main():
     try:
-        sae = AutoEncoder.load_latest(name="celestial-firebrand")
+        sae = AutoEncoder.load_latest(name="toasty-planet")
     except:
         print("not on machine 1, trying second sae")
         try:
@@ -32,7 +32,7 @@ def main():
                 sae = AutoEncoder.load_latest(name="breezy-aardvark")
             except:
                 try:
-                    sae = AutoEncoder.load_latest(name="toasty-planet")
+                    sae = AutoEncoder.load_latest(name="celestial-firebrand")
                 except:
                     # sae = AutoEncoder.load_latest(name="breezy-aardvark")
                     raise Exception("failed")
@@ -52,7 +52,7 @@ def main():
         flatten_heads=False,
         buffer_mult=128 * 16 * 7,
         buffer_refresh_ratio=0.2,
-        lr=3e-5,
+        lr=1e-3,
         features_per_sae_per_layer=[None, 32],
         # data_rescale=20**0.5,
         layer_cfg_params={"l1_coeff":19e-5, "data_rescale" : 1},

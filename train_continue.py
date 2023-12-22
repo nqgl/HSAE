@@ -40,6 +40,7 @@ def main():
     ae = AutoEncoder.load(
         version=31,
         name="honest-glade-629")
+    
     skip_ratio = 0.17
     # cfg = model.post_init_cfg(ae_cfg)
     cfg = ae.cfg

@@ -74,11 +74,11 @@ class ToyModel:
         )
         # binary vs magnitude correalations
 
-    @torch.no_grad
+    @torch.no_grad()
     def next(self):
         return self.get_sample(self.cfg.batch_size)
 
-    @torch.no_grad
+    @torch.no_grad()
     def get_sample(self, batch):
         active = torch.zeros(batch, self.cfg.n_features).to(self.cfg.device)
         probs = self.f_probs.unsqueeze(0).expand(batch, self.cfg.n_features)
@@ -111,7 +111,7 @@ class ToyModel:
         # print("average_activations:", active.sum() / batch, len(self.correlations))
         return x
 
-    @torch.no_grad
+    @torch.no_grad()
     def activated_features(self, probs, num_samples):
         """
         probs: (batch, n_features)

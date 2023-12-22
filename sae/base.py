@@ -50,7 +50,7 @@ class BaseSAE(nn.Module, ABC):
 
 
 
-    @torch.no_grad
+    @torch.no_grad()
     def make_decoder_weights_and_grad_unit_norm(self):
         W_dec_normed = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
         W_dec_grad_proj = (self.W_dec.grad * W_dec_normed).sum(
@@ -114,7 +114,7 @@ class BaseSAE(nn.Module, ABC):
         self.queue_neurons_to_reset(neurons_to_reset)
         self.reset_activation_frequencies()
 
-    # @torch.no_grad
+    # @torch.no_grad()
     # def reset_neurons(
     #     self, new_directions: torch.Tensor, norm_encoder_proportional_to_alive=True
     # ):
@@ -138,7 +138,7 @@ class BaseSAE(nn.Module, ABC):
     #     self.W_dec.data[to_reset, :] = new_directions
     #     self.b_enc.data[to_reset] = 0
 
-    @torch.no_grad
+    @torch.no_grad()
     def reset_neurons(
         self, new_directions: torch.Tensor, norm_encoder_proportional_to_alive=True
     ):
@@ -163,7 +163,7 @@ class BaseSAE(nn.Module, ABC):
         self.b_enc.data[to_reset] = 0
 
 
-    @torch.no_grad
+    @torch.no_grad()
     def reset_activation_frequencies(self, selective=True):
         viable_samples = self.get_neuron_death_viable_samples()
         if not selective or torch.all(viable_samples):
@@ -181,7 +181,7 @@ class BaseSAE(nn.Module, ABC):
     def get_activation_frequencies(self):
         return self.neuron_activation_frequency / self.steps_since_activation_frequency_reset.unsqueeze(-1)
     
-    @torch.no_grad
+    @torch.no_grad()
     def get_dead_neurons(self):
         activity_freq = self.get_activation_frequencies()
         # this gets the counts in the multihead case
@@ -189,7 +189,7 @@ class BaseSAE(nn.Module, ABC):
         dead_neurons = activity_freq < self.cfg.dead_threshold
         return viable_samples.unsqueeze(-1).expand(dead_neurons.shape) & dead_neurons
         
-    @torch.no_grad
+    @torch.no_grad()
     def get_neuron_death_viable_samples(self):
         """
         returns a boolean tensor of shape (n_heads) where True indicates that the neuron is viable for death
@@ -200,7 +200,7 @@ class BaseSAE(nn.Module, ABC):
     
 
 
-    @torch.no_grad
+    @torch.no_grad()
     def queue_neurons_to_reset(self, to_be_reset: torch.Tensor):
         from nqgl.sae.sae.model import AutoEncoder
         if type(self) is AutoEncoder:
@@ -229,7 +229,7 @@ class BaseSAE(nn.Module, ABC):
             self.alive_norm_along_feature_axis = torch.mean(w_enc_norms)
 
 
-    @torch.no_grad
+    @torch.no_grad()
     def re_init_neurons(self, x_diff):
         self.re_init_neurons_gram_shmidt_precise_iterative_argmax(x_diff)
 
@@ -240,7 +240,7 @@ class BaseSAE(nn.Module, ABC):
 
     # Various reinit methods below
 
-    @torch.no_grad
+    @torch.no_grad()
     def re_init_neurons_gram_shmidt_precise_iterative_argmax(self, x_diff):
         n_reset = min(x_diff.shape[0], self.cfg.d_data // 2, self.cfg.num_to_resample)
         v_orth = torch.zeros_like(x_diff)
@@ -269,7 +269,7 @@ class BaseSAE(nn.Module, ABC):
             # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
         self.reset_neurons(v_orth[:n_succesfully_reset])
 
-    @torch.no_grad
+    @torch.no_grad()
     def re_init_neurons_gram_shmidt_precise_topk(self, x_diff):
         t = self.cfg.gram_shmidt_trail
         n_reset = min(x_diff.shape[0], self.cfg.d_data // 2, self.cfg.num_to_resample)
@@ -297,7 +297,7 @@ class BaseSAE(nn.Module, ABC):
             # v_orth[i] = v_ / v_.norm(dim=-1, keepdim=True)
         self.reset_neurons(v_orth[:n_succesfully_reset])
 
-    @torch.no_grad
+    @torch.no_grad()
     def re_init_neurons_gram_shmidt_precise(self, x_diff):
         t = self.cfg.gram_shmidt_trail
         n_reset = min(x_diff.shape[0], self.cfg.d_data // 2, self.cfg.num_to_resample)

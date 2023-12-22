@@ -30,7 +30,7 @@ class Buffer:
         self.time_shuffling = 0
         self.refresh()
 
-    @torch.no_grad
+    @torch.no_grad()
     def refresh(self):
         """
         Refreshes the buffer by populating it with new activations, then shuffles it.
@@ -91,7 +91,7 @@ class Buffer:
         self.time_shuffling += time.time() - t0
         # torch.cuda.empty_cache()
 
-    @torch.no_grad
+    @torch.no_grad()
     def next(self):
         out = self.buffer[self.pointer : self.pointer + self.cfg.batch_size]
         self.pointer += self.cfg.batch_size
@@ -105,7 +105,7 @@ class Buffer:
 
         return out
 
-    @torch.no_grad
+    @torch.no_grad()
     def freshen_buffer(self, fresh_factor=1, half_first=True):
         """
         Refreshes the buffer by moving the pointer and calling the refresh method.
@@ -129,7 +129,7 @@ class Buffer:
             self.pointer += (n + 1) * self.cfg.batch_size
             self.refresh()
 
-    @torch.no_grad
+    @torch.no_grad()
     def skip_first_tokens_ratio(self, skip_percent, skip_batches):
         """
         Fast-forwards through skip_percent proportion of the data

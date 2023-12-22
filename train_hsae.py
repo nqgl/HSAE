@@ -9,8 +9,8 @@ import tqdm
 import torch
 import time
 from typing import Optional
-
-WARMUP_STEPS = 1000
+import math
+WARMUP_STEPS = 10000
 
 
 def train(
@@ -31,7 +31,7 @@ def train(
         num_batches = cfg.num_tokens // cfg.batch_size
         # model_num_batches = cfg.model_batch_size * num_batches
         # encoder_optim = torch.optim.Adam(encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))
-        lr_adj = cfg.lr/50
+        lr_adj = cfg.lr/25
         encoder_optim = torch.optim.Adam(
             encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2)
         )
@@ -46,12 +46,12 @@ def train(
         act_freq_scores_list = []
         print("starting")
         l0_too_high = False
+        i_ramp = 0
+        for p in encoder_optim.param_groups:
+            p["lr"] = (cfg.lr * i_ramp + lr_adj * (WARMUP_STEPS - i_ramp))  / WARMUP_STEPS
+
 
         for i in tqdm.trange(num_batches):
-            i = i % buffer.all_tokens.shape[0]
-            if i < WARMUP_STEPS:
-                for p in encoder_optim.param_groups:
-                    p["lr"] = (cfg.lr * i + lr_adj * (WARMUP_STEPS - i))  / WARMUP_STEPS
 
             acts = buffer.next()
             # if l0_too_high:
@@ -111,7 +111,7 @@ def train(
             # if i % 100 == 0:
             #     if l0_norm.item() < 30:
             #         l0_too_high = False
-            if (i) % 100 == 1:
+            if (i) % 100 == 0:
                 r1 = encoder.sae_0.neurons_to_be_reset
                 r2 = encoder.saes[0].neurons_to_be_reset
                 r1 = r1.shape[0] if r1 is not None else 0
@@ -120,8 +120,23 @@ def train(
                     encoder_optim = torch.optim.Adam(
                         encoder.parameters(), lr=cfg.lr, betas=(cfg.beta1, cfg.beta2)
                     )
+                    i_ramp = 0
                     if onecycle:
                         scheduler.optimizer = encoder_optim
+
+                i_ramp += 100
+                if i_ramp < WARMUP_STEPS or i % 1000 == 900:
+                    if i_ramp > WARMUP_STEPS:
+                        i_ramp = WARMUP_STEPS
+                    topspeed = cfg.lr * (math.log(num_batches) - (999 * math.log(i) / 1000) ** 0.5) / math.log(num_batches)
+                    nlr = (topspeed * i_ramp + lr_adj * (WARMUP_STEPS - i_ramp))  / WARMUP_STEPS
+                    for p in encoder_optim.param_groups:
+                        p["lr"] = nlr
+                    wandb.log({
+                        "lr":nlr
+                    })
+                    
+
                 encoder.re_init_neurons()
                 # torch.cuda.empty_cache()
                 l2_loss = encoder.cached_l2_loss.mean()
@@ -170,7 +185,6 @@ def train(
                 print("Reconstruction:", x)
                 recons_scores.append(x[0])
 
-                # freqs = get_freqs(model, encoder, buffer, 5, local_encoder=encoder)
                 # freqs = encoder.neuron_activation_frequency / encoder.steps_since_activation_frequency_reset
                 # act_freq_scores_list.append(freqs)
                 # histogram(freqs.log10(), marginal="box",h istnorm="percent", title="Frequencies")
@@ -180,13 +194,16 @@ def train(
                         #     "dead": (freqs==0).float().mean().item(),
                         #     "below_1e-6": (freqs<1e-6).float().mean().item(),
                         #     "below_1e-5": (freqs<1e-5).float().mean().item(),
-                        #     "time spent shuffling": buffer.time_shuffling,
-                        #     "total time" : time.time() - t0,
+                            "time spent shuffling": buffer.time_shuffling,
+                            "total time" : time.time() - t0,
                     }
+                )
+                wandb.log(
+                    encoder.histograms()
                 )
             if i == 3100:
                 encoder.reset_activation_frequencies()
-            elif i % 5000 == 3100 and i > 1500:
+            elif i % 50000 == 3100 and i > 1500:
                 encoder.save(name=run.name)
                 # TODO resample
                 # freqs = encoder.neuron_activation_frequency / encoder.steps_since_activation_frequency_reset

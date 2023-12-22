@@ -146,7 +146,7 @@ class AutoEncoder(BaseSAE, nn.Module):
         l1 = torch.sum(l1_coeff * self.cached_l1_loss)
         return l1 + l2
 
-    @torch.no_grad
+    @torch.no_grad()
     def update_scaling(self, x: torch.Tensor):
         x_cent = x - x.mean(dim=0)
         var = x_cent.norm(dim=-1).pow(2).mean()
@@ -161,15 +161,15 @@ class AutoEncoder(BaseSAE, nn.Module):
             / self.cfg.data_rescale
         )
 
-    # @torch.no_grad
+    # @torch.no_grad()
     def scale(self, x):
         return x / self.scaling_factor
 
-    # @torch.no_grad
+    # @torch.no_grad()
     def unscale(self, x):
         return x * self.scaling_factor
 
-    # @torch.no_grad
+    # @torch.no_grad()
     # def reset_neurons(
     #     self, new_directions: torch.Tensor, norm_encoder_proportional_to_alive=True
     # ):
@@ -193,7 +193,7 @@ class AutoEncoder(BaseSAE, nn.Module):
     #     self.W_dec.data[to_reset, :] = new_directions
     #     self.b_enc.data[to_reset] = 0
 
-    # @torch.no_grad
+    # @torch.no_grad()
     # def reset_activation_frequencies(self):
     #     self.neuron_activation_frequency[:] = 0
     #     self.steps_since_activation_frequency_reset = torch.zeros(1)

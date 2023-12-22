@@ -246,11 +246,11 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
                 self.std_dev_accumulation / self.std_dev_accumulation_steps
             )
 
-    # @torch.no_grad
+    # @torch.no_grad()
     def scale(self, x):
         return x * self.cfg.data_rescale
 
-    # @torch.no_grad
+    # @torch.no_grad()
     def unscale(self, x):
         return x / self.cfg.data_rescale
 
@@ -344,7 +344,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
 
 
 
-    @torch.no_grad
+    @torch.no_grad()
     def re_init_neurons_gram_shmidt_precise_iterative_argmax(self, x_diff):
         n_reset = min(x_diff.shape[0], self.cfg.d_data // 2, self.cfg.num_to_resample)
         v_orth = torch.zeros_like(x_diff)

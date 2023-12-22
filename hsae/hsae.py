@@ -158,29 +158,6 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
             l += sae.get_loss()
         return l
 
-    def loss_contributions(self, x):
-        """
-        Returns a dictionary of the contribution of each layer to the loss
-        """
-        saes = [sae for sae in self.saes]
-        x_0 = self.sae_0(x, cache_acts=True)
-        gate = self.gate(self.sae_0.cached_acts)
-        x_i = [x_0]
-        mses = []
-        for i, sae in enumerate(saes):
-            x_i.append(sae(x, gate))
-        x_re = torch.sum(x)
-        mse = (x - x_re).pow(2).mean()
-        x_re_i = [x_re - xi for xi in x_i]
-        mses = torch.tensor(
-            [(x - xrei).pow(2).mean() for xrei in x_re_i], device=self.cfg.device
-        )
-        contrib = mses - mse
-        d = {}
-        for i in range(len(x_i)):
-            d[f"sae{i} mse contrib"] = contrib[i] / mse
-        return d
-
 
     # @staticmethod
     # def call_method_on_layers(function, preprocess=False):
@@ -265,7 +242,47 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
 
 
 
-@torch.no_grad
+
+    def histograms(self):
+        import wandb
+        # head_l0_bar = wandb.Histogram(self.saes[0].get_activation_frequencies().cpu().numpy())
+        freq = self.sae_0.get_activation_frequencies()
+        ll_freq_bar = wandb.Histogram(freq.cpu().numpy())
+
+        return {
+            # "l0_hist" : head_l0_bar,()
+            "lower_level_frequencies" : ll_freq_bar,
+
+        }
+        
+    def loss_contributions(self, x):
+        """
+        Returns a dictionary of the contribution of each layer to the loss
+        """
+        saes = [sae for sae in self.saes]
+        x_0 = self.sae_0(x, cache_acts=True)
+        gate = self.gate(self.sae_0.cached_acts)
+        x_i = [x_0]
+        mses = []
+        for i, sae in enumerate(saes):
+            x_i.append(sae(x, gate))
+        x_re = torch.sum(x)
+        mse = (x - x_re).pow(2).mean()
+        x_re_i = [x_re - xi for xi in x_i]
+        mses = torch.tensor(
+            [(x - xrei).pow(2).mean() for xrei in x_re_i], device=self.cfg.device
+        )
+        contrib = mses - mse
+        d = {}
+        for i in range(len(x_i)):
+            d[f"sae{i} mse contrib"] = contrib[i] / mse
+        return d
+
+    
+
+
+
+@torch.no_grad()
 def make_ll_self_similar(hsae: HierarchicalAutoEncoder, layer_index: int):
     sae0 = hsae.sae_0
     sae = hsae.saes[layer_index]

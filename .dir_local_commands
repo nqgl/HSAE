@@ -48,3 +48,8 @@ copymodels(){
 this(){
     rrun --id $RRUN_ID --export $@
 }
+
+
+cptmr(){
+    echo 'export PYTHONPATH=~/:$PYTHONPATH; pip install transformer_lens; cd modified-SAE; python3 train_hsae_sae0.py' | clippipe
+}

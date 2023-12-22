@@ -4,7 +4,7 @@ import tqdm
 import einops
 
 
-@torch.no_grad
+@torch.no_grad()
 def get_recons_loss(model, encoder, buffer, num_batches=5, local_encoder=None):
     if local_encoder is None:
         local_encoder = encoder
@@ -39,7 +39,7 @@ def get_recons_loss(model, encoder, buffer, num_batches=5, local_encoder=None):
 
 
 # Frequency
-@torch.no_grad
+@torch.no_grad()
 def get_freqs(model, encoder, buffer, num_batches=25, local_encoder=None):
     if local_encoder is None:
         local_encoder = encoder
@@ -66,7 +66,7 @@ def get_freqs(model, encoder, buffer, num_batches=25, local_encoder=None):
     return act_freq_scores
 
 
-@torch.no_grad
+@torch.no_grad()
 def re_init(model, encoder, buffer, indices):
     new_W_enc = torch.nn.init.kaiming_uniform_(torch.zeros_like(encoder.W_enc))
     new_W_dec = torch.nn.init.kaiming_uniform_(torch.zeros_like(encoder.W_dec))
@@ -109,7 +109,7 @@ def zero_ablate_hook(mlp_post, hook):
     return mlp_post
 
 
-@torch.no_grad  # TODO
+@torch.no_grad()  # TODO
 def get_bits_lost(model, encoder, buffer, num_batches=5, local_encoder=None):
     if local_encoder is None:
         local_encoder = encoder

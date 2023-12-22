@@ -106,7 +106,7 @@ class BufferRefresher(Process):
         self.gpu_queue = None
         self.refresh()
 
-    @torch.no_grad
+    @torch.no_grad()
     def run(self):
         self.refresh()
         # print("starting")
@@ -139,7 +139,7 @@ class BufferRefresher(Process):
             # Move the pointer
             # self.token_pointer += self.cfg.batch_size
 
-    @torch.no_grad
+    @torch.no_grad()
     def refresh(self):
         t0 = time.time()
         num_batches = self.pointer // self.cfg.batch_size
@@ -192,7 +192,7 @@ class BufferRefresher(Process):
         print("shuffled")
         self.time_shuffling += time.time() - t0
 
-    @torch.no_grad
+    @torch.no_grad()
     def _next(self):
         out = self.buffer[self.pointer : self.pointer + self.cfg.batch_size]
         self.pointer += self.cfg.batch_size
@@ -206,11 +206,11 @@ class BufferRefresher(Process):
 
         return out
 
-    @torch.no_grad
+    @torch.no_grad()
     def next(self):
         return self.queue.get()
 
-    @torch.no_grad
+    @torch.no_grad()
     def freshen_buffer(self, fresh_factor=1, half_first=True):
         if half_first:
             n = (0.5 * self.cfg.buffer_size) // self.cfg.batch_size
@@ -239,12 +239,12 @@ class ToGpuQueue(Process):
         self.device = device
         self.queue = Queue(maxsize=20) if gpuq is None else gpuq
 
-    @torch.no_grad
+    @torch.no_grad()
     def run(self):
         while True:
             self.queue.put(self.srcq.get().to(self.device))
 
-    @torch.no_grad
+    @torch.no_grad()
     def next(self):
         return self.srcq.get().to(self.device)
         # if self.queue.empty():
