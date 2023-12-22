@@ -29,16 +29,16 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             torch.zeros(self.cfg.n_sae, self.cfg.d_data, dtype=dtype)
         )
 
+        self.b_enc = nn.Parameter(
+            torch.zeros(self.cfg.n_sae, self.cfg.d_dict, dtype=dtype)
+        )
+
         self.W_enc = nn.Parameter(
             torch.nn.init.kaiming_uniform_(
                 torch.empty(
                     self.cfg.n_sae, self.cfg.d_data, self.cfg.d_dict, dtype=dtype
                 )
             )
-        )
-
-        self.b_enc = nn.Parameter(
-            torch.zeros(self.cfg.n_sae, self.cfg.d_dict, dtype=dtype)
         )
 
         self.W_dec = nn.Parameter(
@@ -48,6 +48,19 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
                 )
             )
         )
+
+
+        # self.W_enc = nn.Parameter(
+        #     1e-9 + torch.zeros(
+        #         self.cfg.n_sae, self.cfg.d_data, self.cfg.d_dict, dtype=dtype
+        #     )
+        # )
+
+        # self.W_dec = nn.Parameter(
+        #     1e-9 + torch.zeros(
+        #         self.cfg.n_sae, self.cfg.d_dict, self.cfg.d_data, dtype=dtype
+        #     )
+        # )
 
         self.W_dec.data[:] = self.W_dec / self.W_dec.norm(dim=-1, keepdim=True)
         self.steps_since_activation_frequency_reset = torch.zeros(cfg.n_sae, device=self.cfg.device)
@@ -60,6 +73,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             device=self.cfg.device
         )
         self.cached_gate = None
+    
 
     def encode_flat(
         self,
@@ -69,9 +83,9 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         b_enc
     ):
         # batch, n_sae, d_data
-        x_cent = x - b_dec
+        x_cent = x.float() #- b_dec
         # x_cent = x_cent.unsqueeze(-2)
-        logging.info("\nmult", x_cent.shape, W_enc.shape)
+        # logging.info("\nmult", x_cent.shape, W_enc.shape)
         # input()
         m = x_cent @ W_enc
         acts = self.nonlinearity(m + b_enc)
@@ -111,6 +125,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             x = x.reshape(-1, x_dumb_shape[-1])
             gate = gate.reshape(-1, gate.shape[-1])
         batches = x.shape[0]
+        x = self.scale(x)
 
         gate = gate.unsqueeze(-1).unsqueeze(-1).transpose(0, 1)  # n_sae batches 1 1
         bgate = gate != 0
@@ -127,6 +142,9 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         b_enc_flat = self.b_enc[sae_idxs].unsqueeze(-2)
         W_dec_flat = self.W_dec[sae_idxs]
         b_dec_flat = self.b_dec[sae_idxs].unsqueeze(-2)
+        
+        if self.cfg.scale_b_dec:
+            b_dec_flat = b_dec_flat * self.scale(gate[flat_indices[0], flat_indices[1]])
 
         flat_acts = self.encode_flat(
             x=x_flat, W_enc=W_enc_flat, b_dec=b_dec_flat, b_enc=b_enc_flat
@@ -135,23 +153,23 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         acts = self.full_acts(flat_acts, flat_indices, batches)
         self.cache(acts=acts, flat_acts=flat_acts, gate=gate, **cache_kwargs)
 
-        logging.info("flat_acts", flat_acts.shape)
+        # logging.info("flat_acts", flat_acts.shape)
 
         saes_out_flat = self.decode_flat(
             gate[sae_idxs, batch_idxs] * flat_acts, W_dec=W_dec_flat, b_dec=b_dec_flat
         )
 
-        logging.info("saes_out_flat", saes_out_flat.shape)
-        logging.info("flat_indicies", flat_indices.shape)
+        # logging.info("saes_out_flat", saes_out_flat.shape)
+        # logging.info("flat_indicies", flat_indices.shape)
 
         flatsize = saes_out_flat.shape[0]
         z = torch.zeros(batches, self.cfg.d_data, device=self.cfg.device)
         bids = batch_idxs.reshape(flatsize, 1).expand(-1, self.cfg.d_data)
         sae_re = saes_out_flat.reshape(flatsize, self.cfg.d_data)
 
-        logging.info("z", z.shape)
-        logging.info("bids", bids.shape)
-        logging.info("sae_re", sae_re.shape)
+        # logging.info("z", z.shape)
+        # logging.info("bids", bids.shape)
+        # logging.info("sae_re", sae_re.shape)
         # logging.info("batch_id_max", batch_idxs.max())
 
         x_out = torch.scatter_add(
@@ -161,11 +179,11 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             saes_out_flat.reshape(flatsize, self.cfg.d_data),
         )
 
-        logging.info("x_out", x_out.shape)
-        logging.info(x_out.is_sparse)
-        logging.info(x_out[0].sum(), x_out[1].sum())
-        logging.info(x_out[:, 0].sum(), x_out[:, 1].sum())
-        return x_out.reshape(x_dumb_shape)
+        # logging.info("x_out", x_out.shape)
+        # logging.info(x_out.is_sparse)
+        # logging.info(x_out[0].sum(), x_out[1].sum())
+        # logging.info(x_out[:, 0].sum(), x_out[:, 1].sum())
+        return self.unscale(x_out.reshape(x_dumb_shape))
 
     def full_acts(self, flat_acts, flat_indices, batches):
         acts = torch.zeros(
@@ -208,7 +226,6 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             self.neuron_activation_frequency = (
                 activated + self.neuron_activation_frequency.detach()
             )
-            
             self.steps_since_activation_frequency_reset += (
                 # torch.ones_like *
                 n_active_batches_per_head
@@ -278,7 +295,6 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
             )[has_data]
         )
 
-
         indices = torch.scatter(
             torch.zeros(self.cfg.n_sae, dtype=torch.long, device=self.cfg.device) - 1,
             0,
@@ -287,21 +303,7 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         )
         i = indices[indices != -1]
 
-
-
-
-
-
-
-
-
         indices = torch.zeros(num_heads_with_data, dtype=torch.long, device=self.cfg.device)
-        # idx_map_index_to_head = torch.zeros(num_heads_with_data, dtype=torch.long, device=self.cfg.device)
-        # idx_map_index_to_head[:] = torch.arange(0, self.cfg.n_sae, device=self.cfg.device)[head_has_data]
-        # idx_map_index_to_head = torch.argwhere(head_has_data).squeeze(-1)
-        # idx_map_head_to_index = torch.zeros(self.cfg.n_sae, dtype=torch.long, device=self.cfg.device)
-        # idx_map_head_to_index[idx_map_index_to_head] = torch.arange(0, num_heads_with_data, device=self.cfg.device)
-        # indices[
         i = torch.scatter(
             torch.zeros(self.cfg.n_sae, dtype=torch.long, device=self.cfg.device) - 1,
             0,
@@ -318,18 +320,6 @@ class HierarchicalAutoEncoderLayer(AutoEncoder, nn.Module):
         self.reset_neurons(dirs, neuron_mask, norm_encoder_proportional_to_alive)
 
 
-
-
-        # heads_to_reset = torch.zeros(self.cfg.n_sae, device=self.cfg.)
-        # used = torch.zeros(x_diff.shape[0], dtype=torch.bool, device=self.cfg.device)
-        # replace_mask = torch.zeros_like(self.neurons_to_be_reset[0], dtype=torch.bool, device=self.cfg.device)
-
-        # batches = gate.shape[0]
-        # for b in range(batches):
-            
-        # batch0 = ready[0]
-        # batch0_to_reset = self.neurons_to_be_reset[batch0]
-            
     def reset_neurons(        
         self, 
         new_directions: torch.Tensor, 

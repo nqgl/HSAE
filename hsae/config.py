@@ -18,7 +18,8 @@ class HierarchicalAutoEncoderConfig(AutoEncoderConfig):
     layer_cfg_params_per_layer: List[Dict] = field(default_factory=lambda: [])
     gate_mode: str = "binary"
     act_size: int = None
-
+    train_on_residuals :bool = False
+    sae_0_centering :bool = True
     def __post_init__(self):
         super().__post_init__()
 
@@ -75,6 +76,6 @@ class HierarchicalAutoEncoderLayerConfig(AutoEncoderConfig):
     beta1: float = 0.9
     beta2: float = 0.99
     data_rescale: int = 10
-
+    scale_b_dec :bool = True
     # def __init__(self, cfg :HierarchicalAutoEncoderConfig, **kwargs):
     #     super().__init__(**kwargs)

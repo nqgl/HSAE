@@ -27,9 +27,11 @@ class BaseSAE(nn.Module, ABC):
 
 
     @classmethod
-    def get_version(cls):
+    def get_version(cls, name=None):
+
+        search = cls.sae_type + f"_{name}" if name is not None else cls.sae_type
         import glob
-        type_files = glob.glob(str(SAVE_DIR) + (f"/*_{cls.sae_type}*_cfg.json"))
+        type_files = glob.glob(str(SAVE_DIR) + (f"/*_{search}*_cfg.json"))
         logging.info("type", cls.sae_type, cls)
         logging.info("type_files", type_files)
         version_list = [
@@ -91,8 +93,8 @@ class BaseSAE(nn.Module, ABC):
         return self
 
     @classmethod
-    def load_latest(cls, new_cfg=None):
-        version = cls.get_version() - 1
+    def load_latest(cls, new_cfg=None, name=None):
+        version = cls.get_version(name=name) - 1
         ae = cls.load(version=version, cfg=new_cfg)
         return ae
 

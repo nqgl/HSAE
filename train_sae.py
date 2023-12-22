@@ -87,7 +87,7 @@ def train(
             if (i) % 100 == 0:
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
-            if (i) % 5000 == 0:
+            if i % 5000 == 1:
                 x = get_recons_loss(
                     model, encoder, buffer, local_encoder=encoder, num_batches=1
                 )
@@ -154,9 +154,9 @@ cfg = AutoEncoderConfig(
     layer=1,
     gram_shmidt_trail=512,
     num_to_resample=4,
-    l1_coeff=10e-4,
-    dict_mult=2,
-    batch_size=1024,
+    l1_coeff=14e-4,
+    dict_mult=64,
+    batch_size=512,
     beta2=0.999,
     subshuffle=16,
     nonlinearity=("relu", {}),

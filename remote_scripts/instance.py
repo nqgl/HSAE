@@ -16,6 +16,7 @@ class Instance:
         self.url = url
         self.id = id
         self.c = None
+        self.q = True
 
     def connect(self):
         self.c = Connection(
@@ -25,8 +26,12 @@ class Instance:
             },
         )
 
+    def vprint(self, *a):
+        if not self.q:
+            print(*a)
+
     def run(self, cmd):
-        print("\n### " + cmd)
+        self.vprint("\n### " + cmd)
         if self.c is None:
             self.connect()
         return self.c.run(cmd)
@@ -56,17 +61,23 @@ class Instance:
         exclude += [".git"]
         rsync(c=self.c, source=".", target="~/modified-SAE", exclude=exclude)
 
+    def copy_model(self, s):
+        rsync(c=self.c, source=f"./remote_scripts/models-from-remote/{s}", target="~/workspace/")
+
     def close(self):
         self.c.close()
         self.c = None
 
+    def ssh_str(self):
+        url, port = self.url.split(":")
+        return f"ssh -p {port} {url}"
 
 def get_instances():
     commands = ". ./remote_scripts/remote_run.sh; instances | inst_to_sshurl"
     r = subprocess.run(commands, shell=True, capture_output=True)
     s = r.stdout.decode("utf-8")
     insts = s.split("\n")
-    print(insts)
+    # print(insts)
     for insturl in insts:
         if insturl:
             id, url = insturl.split("->")

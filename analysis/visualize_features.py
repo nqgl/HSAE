@@ -1,4 +1,5 @@
 from nqgl.sae.sae import AutoEncoder, AutoEncoderConfig
+from nqgl.sae.hsae.hsae import HierarchicalAutoEncoder, HierarchicalAutoEncoderLayer
 from nqgl.sae.toy_models.toy_model import ToyModel
 import torch
 import torch.nn.functional as F
@@ -18,6 +19,18 @@ def get_adjusted_feature_directions(toy: ToyModel, ae: AutoEncoder):
 
     ground_truth_directions = F.normalize(ground_truth_adjusted_features, dim=-1)
     return ground_truth_directions, learned_features
+
+
+def get_adjusted_feature_directions_from_hierarchical(toy: ToyModel, ae: HierarchicalAutoEncoder, layer, feature_index):
+    ground_truth_features = toy.features * toy.f_means.view(-1, 1)
+
+    learned_features, bias = ae.get_features_and_bias(layer, feature_index)
+    learned_features = F.normalize(learned_features, dim=-1)
+    ground_truth_adjusted_features = ground_truth_features - bias
+
+    ground_truth_directions = F.normalize(ground_truth_adjusted_features, dim=-1)
+    return ground_truth_directions, learned_features
+
 
 
 def get_adjusted_feature_directions2(toy: ToyModel, ae: AutoEncoder):

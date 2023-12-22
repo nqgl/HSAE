@@ -17,8 +17,9 @@ import types
 # import torchsparsegradutils as tsgu
 # @staticmethod
 def call_method_on_layers(
-    function :Callable, 
-    preprocess=lambda s, *a, **k : (a, k)
+    function :Optional[Callable]=None, 
+    preprocess=lambda s, *a, **k : (a, k),
+    skip=lambda s, i, *a, **k: False
 ) -> Callable:
 
     funct = lambda s, *a, **k : function(s, *a, **k)
@@ -27,16 +28,30 @@ def call_method_on_layers(
         return lambda f : (
             call_method_on_layers(
                 function=f,
-                preprocess=funct
+                preprocess=funct,
+                skip=skip
+            )
+        )
+    
+    elif function is None:
+        return lambda f : (
+            call_method_on_layers(
+                function=f,
+                preprocess=preprocess,
+                skip=skip
             )
         )
 
     function_name = function.__name__
     def wrapper(self, *args, **kwargs):
         args, kwargs = preprocess(self, *args, **kwargs)
-        out = [self.sae_0.__getattribute__(function_name)(*args, **kwargs)]
-        for sae in self.saes:
-            out.append(sae.__getattribute__(function_name)(*args, **kwargs))
+        if skip(self, -1, *args, **kwargs):
+            out = []
+        else:
+            out = [self.sae_0.__getattribute__(function_name)(*args, **kwargs)]
+        for i, sae in enumerate(self.saes):
+            if not skip(self, i, *args, **kwargs):
+                out.append(sae.__getattribute__(function_name)(*args, **kwargs))
         return funct(self, out, *args, **kwargs)
     return wrapper
 
@@ -46,10 +61,14 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
     CONFIG = HierarchicalAutoEncoderConfig
 
     def __init__(
-        self, cfg: HierarchicalAutoEncoderConfig, sae0: Optional[AutoEncoder] = None
+        self, 
+        cfg: HierarchicalAutoEncoderConfig, 
+        sae0: Optional[AutoEncoder] = None,
+        init_with_sae0_feature = True
     ):
         super().__init__()
         self.sae_0 = AutoEncoder(cfg) if sae0 is None else sae0
+
         self.saes: List["HierarchicalAutoEncoderLayer"] = nn.ModuleList(
             HierarchicalAutoEncoderLayer(cfg=layer_cfg, cfg_0=cfg)
             for layer_cfg in cfg.sublayer_cfgs
@@ -58,6 +77,17 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
         self.neurons_to_be_reset = None
         self.steps_since_activation_frequency_reset = None
         self.cached_x_diff = None
+        self.b_dec = nn.Parameter(torch.zeros(cfg.d_data, dtype=torch.float32)).to(cfg.device)
+        if sae0 is not None and init_with_sae0_feature:
+            with torch.no_grad():
+                for i in range(sae0.cfg.d_dict):
+                    feature = sae0.W_dec[i]
+                    self.saes[0].b_dec[i] = feature     #TODO expand for >2 layers case
+                self.b_dec.data[:] = sae0.b_dec
+# I need to add centering with the b_dec per the hsae
+        self.sae_0_frozen = False
+        self.sae_0.cfg.scale_in_forward = False
+
 
     def forward(
         self, 
@@ -70,17 +100,20 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
         if rescaling:
             self.sae_0.update_scaling(x)
         x = self.sae_0.scale(x)
-
         cache_kwargs = dict(
             cache_acts=True, 
             cache_l0=True, 
             record_activation_frequency=True
         )
-        x_0 = self.sae_0(x, **cache_kwargs)
-        x_n = x_0
+        x_orig = x
+        x_0 = self.sae_0(x_orig, **cache_kwargs)
+        if self.cfg.sae_0_centering:
+            x = x - self.b_dec
+        x_n = x_0 if self.cfg.train_on_residuals else torch.zeros_like(x_0)
         acts = self.sae_0.cached_acts
         self.cached_l1_loss = self.sae_0.cached_l1_loss
         # print("x_0", x_0.shape)
+
         prev = self.sae_0
         for sae in self.saes:
             x_ = x if not self.cfg.sublayers_train_on_error else x - x_n
@@ -101,7 +134,9 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
             acts = sae.cached_acts
             # self.cached_l1_loss += sae.cached_l1_loss
             prev = sae
-        self.cached_x_diff = x.float() - x_n.float()
+        if self.cfg.sae_0_centering:
+            x_n = x_n + self.b_dec
+        self.cached_x_diff = x_orig.float() - x_n.float()
         self.cached_l2_loss = (self.cached_x_diff) ** 2
         self.cached_l1_loss = self.sae_0.cached_l1_loss
         self.cached_l0_norm = self.sae_0.cached_l0_norm
@@ -179,12 +214,16 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
 
 
 
-    @call_method_on_layers
-    def reset_neurons(self, out, *args, **kwargs):
+    @call_method_on_layers(
+        skip = lambda s, i, *a, **k: (
+            s.sae_0_frozen and i == -1
+        )
+    )
+    def make_decoder_weights_and_grad_unit_norm(self, out, *args, **kwargs):
         pass
 
     @call_method_on_layers
-    def make_decoder_weights_and_grad_unit_norm(self, out, *args, **kwargs):
+    def reset_neurons(self, out, *args, **kwargs):
         pass
 
     @call_method_on_layers
@@ -208,11 +247,22 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
         """
         Re-initializes neurons that have not been active for a long time.
         """
-        if self.sae_0.neurons_to_be_reset is not None:
+        if self.sae_0.neurons_to_be_reset is not None and not self.freeze_sae0:
             self.sae_0.re_init_neurons(self.cached_x_diff)
         for sae in self.saes:
             if sae.neurons_to_be_reset is not None:
                 sae.re_init_neurons(self.cached_x_diff, sae.cached_gate)
+
+
+    def freeze_sae0(self):
+        for p in self.sae_0.parameters():
+            p.requires_grad = False
+        self.sae_0_frozen = True
+
+    def get_features_and_bias(self, layer, feature_index):
+        return features, bias
+    
+
 
 
 @torch.no_grad

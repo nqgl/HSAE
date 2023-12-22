@@ -20,14 +20,38 @@ parser.add_argument(
 parser.add_argument(
     "command", type=str, help="Command to run on remote machine", nargs="+"
 )
+parser.add_argument("--copymodel", type=str, help="select a model to copy to the remote")
+parser.add_argument("--tmux", action="store_true", help="get ssh for remote")
 parser.add_argument(
     "--export",
     action="store_true",
     help="Export PYTHONPATH to include ~/",
 )
-#export PYTHONPATH=~/:$PYTHONPATH; python3 train_hsae.py
+
+
+
+
+#export PYTHONPATH=~/:$PYTHONPATH; pip install transformer_lens; cd modified-SAE; python3 train_hsae_sae0.py
 #mkdir nqgl; mv modified-SAE sae; mv sae nqgl/sae; ln -s nqgl/sae; mv sae modified-SAE
 args = parser.parse_args()
+
+
+
+if args.id is None:
+    args.id = 0
+    if args.tmux:
+        # print(args.command)
+        args.id = int(args.command[0])
+inst = Instance.s_[args.id]
+
+if args.copymodel:
+    inst.connect()
+    inst.copy_model(args.copymodel)
+
+if args.tmux:
+    print(inst.ssh_str())
+    exit()
+
 
 command = " ".join(args.command)
 if args.timeout:
@@ -40,7 +64,7 @@ else:
 
 if args.export:
     cmd = f"export PYTHONPATH=~/:$PYTHONPATH; {cmd}"
-    
+
 if args.local:
     if args.pkill:
         raise Exception("Can't pkill root locally.")
@@ -61,10 +85,6 @@ if args.local:
             print("Change detected!")
     exit()
 
-
-if args.id is None:
-    args.id = 0
-inst = Instance.s_[args.id]
 if args.setup:
     inst.setup()
 if not args.dont_sync:

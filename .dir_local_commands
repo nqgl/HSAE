@@ -1,3 +1,50 @@
 rrun(){
     py remote_scripts/run.py $@
 }
+
+# srun(){
+#     i=$1
+#     shift
+#     if [ -z "$i" ]; then
+#         j=$i
+#     else
+#         j=$i
+#     fi
+#     if [ 0 = $j ]; then
+#         geo="80x20+4600+000"
+#     elif [ 1 = $j ]; then
+#         geo="80x20+4600+800"
+#     elif [ 2 = $j ]; then
+#         geo="80x20+3600+800"
+#     elif [ 3 = $j ]; then
+#         geo="80x20+3600+000"
+#     else
+#         echo error with j
+#         return
+#     fi
+#     gnome-terminal --geometry=$geo --profile= -- "/usr/bin/zsh" "-c 'sae; locals; rrun --sshstr'" 
+# }
+
+tm(){
+    $(rrun $RRUN_ID --tmux) 
+}
+
+sid(){
+    RRUN_ID=$1
+}
+
+rsetup(){
+    rrun --id $RRUN_ID --setup --export python3 train_hsae_sae0.py
+}
+
+rpy(){
+    rrun --id $RRUN_ID --export python3 $@
+}
+
+copymodels(){
+    rrun --id $RRUN_ID --copymodel '*' $@
+}
+
+this(){
+    rrun --id $RRUN_ID --export $@
+}
