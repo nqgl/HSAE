@@ -18,7 +18,7 @@ class Buffer:
     It'll automatically run the model to generate more when it gets halfway empty.
     """
 
-    def __init__(self, cfg, tokens, model):
+    def __init__(self, cfg, tokens, model, dont_shuffle=False):
         self.buffer = torch.zeros(
             (cfg.buffer_size, cfg.d_data), dtype=torch.float16, requires_grad=False
         ).to(cfg.device)
@@ -29,6 +29,7 @@ class Buffer:
         self.model = model
         self.time_shuffling = 0
         self.refresh()
+        self.dont_shuffle = dont_shuffle
 
     @torch.no_grad()
     def refresh(self):
@@ -70,7 +71,7 @@ class Buffer:
                 self.token_pointer += self.cfg.model_batch_size
 
         self.pointer = 0
-        if self.cfg.subshuffle is None:
+        if self.cfg.subshuffle is None and not self.dont_shuffle:
             self.buffer = self.buffer[
                 torch.randperm(self.buffer.shape[0]).to(self.cfg.device)
             ]
@@ -104,6 +105,16 @@ class Buffer:
             self.refresh()
 
         return out
+    
+
+
+
+    @torch.no_grad()
+    def next_tokens(self):
+        out = self.buffer[self.pointer : self.pointer + self.cfg.batch_size]
+        return out
+
+
 
     @torch.no_grad()
     def freshen_buffer(self, fresh_factor=1, half_first=True):

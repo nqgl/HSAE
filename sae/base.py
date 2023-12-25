@@ -27,11 +27,12 @@ class BaseSAE(nn.Module, ABC):
 
 
     @classmethod
-    def get_version(cls, name=None):
+    def get_version(cls, name=None, save_dir=None):
+        save_dir = SAVE_DIR if save_dir is None else Path(save_dir)
 
         search = cls.sae_type + f"_{name}" if name is not None else cls.sae_type
         import glob
-        type_files = glob.glob(str(SAVE_DIR) + (f"/*_{search}*_cfg.json"))
+        type_files = glob.glob(str(save_dir) + (f"/*_{search}*_cfg.json"))
         logging.info("type", cls.sae_type, cls)
         logging.info("type_files", type_files)
         version_list = [
@@ -79,13 +80,14 @@ class BaseSAE(nn.Module, ABC):
         import glob
 
         vname = str(version) + "_" + cls.sae_type if not omit_type else str(version)
-        vname = "_" + vname + "_" + name if name is not None else vname
+        vname = "*" + vname + "*" + name if name is not None else vname
         if cfg is None:
             cfg_search = str(save_dir) + f"/{vname}*_cfg.json"
-            logging.info("seeking", cfg_search)
+            print("seeking", cfg_search)
             cfg_name = glob.glob(cfg_search)
             cfg = json.load(open(cfg_name[0]))
             cfg = cls.CONFIG(**cfg)
+        print(vname)
         pt_name = glob.glob(str(save_dir / (str(vname) + "*.pt")))
         pprint.pprint(cfg)
         self = cls(cfg=cfg)
@@ -93,9 +95,9 @@ class BaseSAE(nn.Module, ABC):
         return self
 
     @classmethod
-    def load_latest(cls, new_cfg=None, name=None):
-        version = cls.get_version(name=name) - 1
-        ae = cls.load(version=version, cfg=new_cfg)
+    def load_latest(cls, new_cfg=None, name=None, save_dir=None):
+        version = cls.get_version(name=name, save_dir=save_dir) - 1
+        ae = cls.load(version=version, cfg=new_cfg, save_dir=save_dir)
         return ae
 
 

@@ -1,5 +1,8 @@
 #%%
-%cd /workspace
+%cd /root
+#%%
+!pip install matplotlib
+!pip install plotly
 #%%
 from nqgl.sae.hsae.hsae import HierarchicalAutoEncoder, HierarchicalAutoEncoderConfig
 import json
@@ -21,116 +24,30 @@ import pandas as pd
 import einops
 from pathlib import Path
 from nqgl.sae.calculations_on_sae import get_recons_loss, replacement_hook, zero_ablate_hook, mean_ablate_hook
-
+from nqgl.sae.setup_utils import get_model, load_data, shuffle_documents
+from nqgl.sae.analysis.utils_from_others import *
 #%%
-hsae = HierarchicalAutoEncoder.load(save_dir="/workspace/nqgl/sae/models/")
+hsae = HierarchicalAutoEncoder.load_latest(name="absurd-blaze")
 # %%
-"""## Loading Data"""
-def shuffle_data(all_tokens):
-    print("Shuffled data")
-    return all_tokens[torch.randperm(all_tokens.shape[0])]
+from nqgl.sae.buffer import Buffer
 
-loading_data_first_time = False
-if loading_data_first_time:
-    data = load_dataset("NeelNanda/c4-code-tokenized-2b", split="train", cache_dir="/workspace/cache/")
-    data.save_to_disk("/workspace/data/c4_code_tokenized_2b.hf")
-    data.set_format(type="torch", columns=["tokens"])
-    all_tokens = data["tokens"]
-    all_tokens.shape
-
-
-    all_tokens_reshaped = einops.rearrange(all_tokens, "batch (x seq_len) -> (batch x) seq_len", x=8, seq_len=128)
-    all_tokens_reshaped[:, 0] = model.tokenizer.bos_token_id
-    all_tokens_reshaped = all_tokens_reshaped[torch.randperm(all_tokens_reshaped.shape[0])]
-    torch.save(all_tokens_reshaped, "/workspace/data/c4_code_2b_tokens_reshaped.pt")
-else:
-    # data = datasets.load_from_disk("/workspace/data/c4_code_tokenized_2b.hf")
-    all_tokens = torch.load("/workspace/data/c4_code_2b_tokens_reshaped.pt")
-    all_tokens = shuffle_data(all_tokens)
+model = get_model(hsae.cfg)
+all_tokens = load_data(model)
+buffer =Buffer(hsae.cfg, all_tokens, model, dont_shuffle=True)
 #%%
 
 SPACE = "·"
 NEWLINE="↩"
 TAB = "→"
-def process_token(s):
-    if isinstance(s, torch.Tensor):
-        s = s.item()
-    if isinstance(s, np.int64):
-        s = s.item()
-    if isinstance(s, int):
-        s = model.to_string(s)
-    s = s.replace(" ", SPACE)
-    s = s.replace("\n", NEWLINE+"\n")
-    s = s.replace("\t", TAB)
-    return s
-
-def process_tokens(l):
-    if isinstance(l, str):
-        l = model.to_str_tokens(l)
-    elif isinstance(l, torch.Tensor) and len(l.shape)>1:
-        l = l.squeeze(0)
-    return [process_token(s) for s in l]
-
-def process_tokens_index(l):
-    if isinstance(l, str):
-        l = model.to_str_tokens(l)
-    elif isinstance(l, torch.Tensor) and len(l.shape)>1:
-        l = l.squeeze(0)
-    return [f"{process_token(s)}/{i}" for i,s in enumerate(l)]
-
-def create_vocab_df(logit_vec, make_probs=False, full_vocab=None):
-    if full_vocab is None:
-        full_vocab = process_tokens(model.to_str_tokens(torch.arange(model.cfg.d_vocab)))
-    vocab_df = pd.DataFrame({"token": full_vocab, "logit": utils.to_numpy(logit_vec)})
-    if make_probs:
-        vocab_df["log_prob"] = utils.to_numpy(logit_vec.log_softmax(dim=-1))
-        vocab_df["prob"] = utils.to_numpy(logit_vec.softmax(dim=-1))
-    return vocab_df.sort_values("logit", ascending=False)
-
-"""### Make Token DataFrame"""
-
-def list_flatten(nested_list):
-    return [x for y in nested_list for x in y]
-def make_token_df(tokens, len_prefix=5, len_suffix=1):
-    str_tokens = [process_tokens(model.to_str_tokens(t)) for t in tokens]
-    unique_token = [[f"{s}/{i}" for i, s in enumerate(str_tok)] for str_tok in str_tokens]
-
-    context = []
-    batch = []
-    pos = []
-    label = []
-    for b in range(tokens.shape[0]):
-        # context.append([])
-        # batch.append([])
-        # pos.append([])
-        # label.append([])
-        for p in range(tokens.shape[1]):
-            prefix = "".join(str_tokens[b][max(0, p-len_prefix):p])
-            if p==tokens.shape[1]-1:
-                suffix = ""
-            else:
-                suffix = "".join(str_tokens[b][p+1:min(tokens.shape[1]-1, p+1+len_suffix)])
-            current = str_tokens[b][p]
-            context.append(f"{prefix}|{current}|{suffix}")
-            batch.append(b)
-            pos.append(p)
-            label.append(f"{b}/{p}")
-    # print(len(batch), len(pos), len(context), len(label))
-    return pd.DataFrame(dict(
-        str_tokens=list_flatten(str_tokens),
-        unique_token=list_flatten(unique_token),
-        context=context,
-        batch=batch,
-        pos=pos,
-        label=label,
-    ))
 
 # %%
-DTYPES = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
 cfg = hsae.cfg
 model_name = hsae.cfg.model_name
 enc_dtype = hsae.cfg.enc_dtype
-model = HookedTransformer.from_pretrained(model_name).to(DTYPES[enc_dtype])
+
+# model = HookedTransformer.from_pretrained(model_name).to(DTYPES[enc_dtype])
+
+
 n_layers = model.cfg.n_layers
 d_model = model.cfg.d_model
 n_heads = model.cfg.n_heads
@@ -139,39 +56,67 @@ d_mlp = model.cfg.d_mlp
 d_vocab = model.cfg.d_vocab
 # %%
 batch_size = 32
-number_of_batches = 100
+number_of_batches = 40
 tokens = all_tokens[:batch_size*number_of_batches]
 activations = []
 sae1 = hsae.saes[0]
+# tokens = []
 
 
 for i in range(number_of_batches):
+    print(i)
     with torch.no_grad():
         input_tokens = tokens[i*batch_size:(i+1)*batch_size]
         _, cache = model.run_with_cache(input_tokens, stop_at_layer=cfg.layer+1)
         mlp_acts = cache[cfg.act_name]
-        mlp_acts_flattened = mlp_acts.reshape(-1, cfg.act_size)
-        x_reconstruct = hsae(mlp_acts_flattened)
-        hidden_acts = hsae.saes[0].cached_acts.reshape(batch_size*128, -1)
+        model_acts = mlp_acts.reshape(-1, cfg.act_size)
+        # acts = buffer.next()
+        # buffer.refresh()
+        # input_tokens = buffer.all_tokens[
+        #             buffer.token_pointer  - buffer.cfg.model_batch_size : buffer.token_pointer
+        #         ]
+        # tokens += input_tokens
+        hidden_acts = torch.zeros(model_acts.shape[0], sae1.cfg.n_sae, sae1.cfg.d_dict).to(cfg.device)
+        for j in range(model_acts.shape[0] // hsae.cfg.batch_size):
+            hsae(model_acts[j*hsae.cfg.batch_size:(j+1)*hsae.cfg.batch_size])
+            hidden_acts[j*hsae.cfg.batch_size:(j+1)*hsae.cfg.batch_size] = hsae.saes[0].cached_acts
         activations.append(hidden_acts.cpu().numpy())
+        
+        # x_reconstruct = hsae(model_acts)
+
+print(input_tokens.shape)
+# print(acts.shape)
 hidden_acts = np.array(activations).reshape(-1, sae1.cfg.d_dict * sae1.cfg.n_sae)
 
 print(hidden_acts.shape)
 # %%
 def show_random_highly_activating(activations, feature_id, percentile=90):
-    token_df = make_token_df(tokens)
+    token_df = make_token_df(tokens, len_prefix=10, len_suffix=3)
     features = activations[:, feature_id]
     token_df["feature"] = utils.to_numpy(features)
     #select all where feature > 0.0
     token_df = token_df[token_df["feature"]>0]
     #get the 50th percentile
     percentile = np.percentile(token_df["feature"], percentile)
-    #select all where feature > 50th percentile
+    #select all where feature > 50th percentile/usr/local/lib/python3.8/dist-packages/pandas/core/common.py
     display(token_df[token_df["feature"]>percentile].sample(10).style.background_gradient("coolwarm"))
 
 # %%
 
-feature_id = 0
-try:
-    show_random_highly_activating(hidden_acts, feature_id, percentile=90)
+freq_per_feature = (hidden_acts > 0).mean(axis=0)
+
+
+high_data_features = np.arange(0, freq_per_feature.shape[0])[np.argsort(freq_per_feature)[::-1][:100]]
+print("top level dict", cfg.d_dict)
+
+# %%
+tlf = 2
+for feature_id in range(tlf * 32, (1+tlf) * 32):
+    try:
+        show_random_highly_activating(hidden_acts, feature_id, percentile=99)
+    except:
+        continue
+    print(f"the above feature was {feature_id}")
+    # else:
+        # break
 # %%
