@@ -87,6 +87,17 @@ get_model(){
     fi
 }
 
+inst_to_sshurl(){
+    while read inst; do
+        inst_name="$(vastai ssh-url ${inst})"
+        if [ $1 = "-q" ]; then
+            echo ${inst_name}
+        else
+            echo ${inst}"->"${inst_name}
+        fi
+    done
+    
+}
 
 download_scp_link(){
     # take a file url like

@@ -1,11 +1,23 @@
-from sae_config import AutoEncoderConfig
-from setup_utils import get_model
-from buffer import Buffer
+from nqgl.sae.sae.config import AutoEncoderConfig
+from nqgl.sae.setup_utils import get_model
+from nqgl.sae.buffer import Buffer
+
 import torch
 
 
-def precompute_activations(model, cfg :AutoEncoderConfig, tokens, token_start = 0, proportion_of_data = 0.01, chunk_size = 10000, num_chunks = 100, freshen_buffer = False, storage_location="~/activations"):
+def precompute_activations(
+    model,
+    cfg: AutoEncoderConfig,
+    tokens,
+    token_start=0,
+    proportion_of_data=0.01,
+    chunk_size=10000,
+    num_chunks=100,
+    freshen_buffer=False,
+    storage_location="~/activations",
+):
     import tqdm
+
     model.eval()
     model.to(cfg.device)
     tokens = tokens[token_start:token_stop]
@@ -15,7 +27,7 @@ def precompute_activations(model, cfg :AutoEncoderConfig, tokens, token_start = 
         buffer.freshen_buffer(2)
     # buffer.skip_first_tokens_ratio(0.08)
     prev_chunk = None
-    next_chunk = torch.zeros((cfg.buffer_size, cfg.act_size), device="cuda")
+    next_chunk = torch.zeros((cfg.buffer_size, cfg.d_data), device="cuda")
     for i in tqdm.trange(proportion_of_data * cfg.num_tokens // cfg.batch_size):
         acts = buffer.next()
         print(acts.shape)
@@ -23,5 +35,5 @@ def precompute_activations(model, cfg :AutoEncoderConfig, tokens, token_start = 
             print("breaking with token pointer = ", buffer.token_pointer)
             break
         assert False
-    
+
     return acts

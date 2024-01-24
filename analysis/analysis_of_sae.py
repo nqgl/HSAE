@@ -1,11 +1,11 @@
-from sae import AutoEncoder, AutoEncoderConfig
+from nqgl.sae.sae.model import AutoEncoder, AutoEncoderConfig
 import einops
 import circuitsvis
 import transformer_lens
 import torch
 from matplotlib import pyplot as plt
-ae = AutoEncoder.load(171, save_dir="/home/g/mats/sae/models-from-remote/")
 
+ae = AutoEncoder.load(171, save_dir="/home/g/mats/sae/models-from-remote/")
 
 print(f"encoder_size:{ae.W_enc.shape}")
 print(f"decoder_size:{ae.W_dec.shape}")
@@ -13,7 +13,9 @@ print(f"decoder_size:{ae.W_dec.shape}")
 model = z_sae.get_model(ae.cfg)
 
 decoder = ae.W_dec
-head_matricies = einops.rearrange(ae.W_dec, "d_dict (n_heads d_head) -> d_dict n_heads d_head", n_heads=8, d_head=64)
+head_matricies = einops.rearrange(
+    ae.W_dec, "d_dict (n_heads d_head) -> d_dict n_heads d_head", n_heads=8, d_head=64
+)
 
 
 first_five_features = decoder[250:255]
@@ -56,4 +58,3 @@ plt.plot(decoder[max_skew].detach().cpu().numpy(), label=f"max skew feature {max
 plt.legend()
 plt.title("max skew")
 plt.show()
-

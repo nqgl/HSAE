@@ -16,17 +16,20 @@ m = nn.Linear(d1, d2, bias=False)
 
 nmat0 = F.normalize(m.weight, dim=0)
 nmat1 = F.normalize(m.weight, dim=1)
+
+
 # nmat1 = F.normalize(nmat1, dim=0)
 def orth_penalty(mat):
     n, m = mat.shape[-2:]
-    if n <  m:
+    if n < m:
         mat = mat.transpose(-1, -2)
     opmat1 = mat @ mat.transpose(-1, -2) - torch.eye(mat.shape[-2], device=mat.device)
     opmat2 = mat.transpose(-1, -2) @ mat - torch.eye(mat.shape[-1], device=mat.device)
     print(opmat1.shape)
     return torch.mean(torch.pow(opmat1, 2)) + torch.mean(torch.pow(opmat2, 2)) * 0
-    
-def orth_stacked_penalty(mat, row = False, col = True):
+
+
+def orth_stacked_penalty(mat, row=False, col=True):
     n_out, n_in = mat.shape[-2:]
     # m, n = n_out, n_i
     assert n_in >= n_out
@@ -35,12 +38,16 @@ def orth_stacked_penalty(mat, row = False, col = True):
     l = 0
     if row:
         for j in range(i):
-            matj = mat[:, j*n_out:(j+1)*n_out]
-            opmat_row = matj @ matj.transpose(-1, -2) - torch.eye(matj.shape[-2], device=matj.device)
+            matj = mat[:, j * n_out : (j + 1) * n_out]
+            opmat_row = matj @ matj.transpose(-1, -2) - torch.eye(
+                matj.shape[-2], device=matj.device
+            )
             l += torch.mean(torch.pow(opmat_row, 2))
         # l += torch.mean(torch.abs(opmat_row))
     if col:
-        opmat_col = mat.transpose(-1, -2) @ mat - torch.eye(mat.shape[-1], device=mat.device)
+        opmat_col = mat.transpose(-1, -2) @ mat - torch.eye(
+            mat.shape[-1], device=mat.device
+        )
         l += torch.mean(torch.pow(opmat_col, 2))
     # return torch.mean(torch.pow(opmat2, 2))
     if torch.isnan(l):
@@ -89,9 +96,9 @@ def main():
     b = 4
 
     for i in range(b):
-        nbvecs = torch.randn(100, d1//b)
+        nbvecs = torch.randn(100, d1 // b)
         nbvecs = F.normalize(nbvecs, dim=-1)
-        
+
         m = omat.weight[:, i * d2 : (i + 1) * d2]
         v = torch.zeros(100, d1)
         v[:, i * d2 : (i + 1) * d2] = nbvecs
@@ -113,9 +120,8 @@ def main():
 
 @dataclass
 class OrthAEConfig:
-    by_row :bool
-    by_col :bool
-    
+    by_row: bool
+    by_col: bool
 
 
 class OrthPenalizedLinear(nn.Module):
@@ -126,7 +132,7 @@ class OrthPenalizedLinear(nn.Module):
 
     def forward(self, x):
         return self.linear(x)
-    
+
     def penalty(self):
         return orth_stacked_penalty(self.linear.weight)
 
@@ -138,17 +144,18 @@ class RowNormPenalizedLinear(nn.Module):
 
     def forward(self, x):
         return self.linear(x)
-    
+
     def penalty(self):
         normed = self.linear.weight.norm(dim=-2)
         return torch.mean(torch.pow(self.linear.weight.norm(dim=-2) - 1, 2))
-    
+
+
 class NoOpModule(nn.Module):
     def __init__(self, in_features=None, out_features=None, bias=False):
         super(NoOpModule, self).__init__()
 
     def forward(self, x):
         return x
-    
+
     def penalty(self):
         return 0
