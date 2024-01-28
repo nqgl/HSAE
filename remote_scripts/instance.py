@@ -73,7 +73,8 @@ class Instance:
         return f"ssh -p {port} {url}"
 
 def get_instances():
-    commands = ". ./remote_scripts/remote_run.sh; instances | inst_to_sshurl"
+    RR_PATH = os.path.dirname(os.path.realpath(__file__))
+    commands = ". " + os.path.join(RR_PATH, "/remote_run.sh") + "; instances | inst_to_sshurl"
     r = subprocess.run(commands, shell=True, capture_output=True)
     s = r.stdout.decode("utf-8")
     insts = s.split("\n")

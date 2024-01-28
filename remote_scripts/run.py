@@ -3,7 +3,7 @@ import argparse
 import time
 
 parser = argparse.ArgumentParser(description="Run a command on a remote machine.")
-parser.add_argument("--id", type=int, help="Name of remote machine")
+parser.add_argument("--id", type=int, help="Index of remote machine")
 parser.add_argument("--setup", action="store_true", help="Setup remote machine")
 parser.add_argument("--dont-sync", action="store_true", help="Dont sync code")
 parser.add_argument("--no-cd", action="store_true", help="Dont cd to ~/modified-SAE")
