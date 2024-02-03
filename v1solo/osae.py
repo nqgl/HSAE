@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Any, List, Union
-import novel_nonlinearities
+import sae.novel_nonlinearities as novel_nonlinearities
 import os
 import json
 from dataclasses import dataclass

@@ -83,5 +83,9 @@ nonlinearity_dict = {
 
 def cfg_to_nonlinearity(cfg):
     nonlinearity = nonlinearity_dict[cfg.nonlinearity[0]]
+    if nonlinearity != "relu":
+        print("WARNING: Using non-ReLU nonlinearity. This is experimental and \
+               may perform worse than just resampling. It is included for \
+               backwards compatibility.")
     nonlinearity_kwargs = cfg.nonlinearity[1]
     return partial(nonlinearity, **nonlinearity_kwargs)

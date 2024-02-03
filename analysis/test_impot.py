@@ -201,7 +201,7 @@ d_vocab = model.cfg.d_vocab
 
 
 #Data
-from nqgl.sae.buffer import Buffer
+from nqgl.sae.training.buffer import Buffer
 
 buffer = Buffer(cfg=model.cfg)
 

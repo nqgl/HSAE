@@ -1,4 +1,4 @@
-from nqgl.sae.setup_utils import SAVE_DIR, DTYPES
+from nqgl.sae.training.setup_utils import SAVE_DIR, DTYPES
 
 import torch
 import torch.nn as nn

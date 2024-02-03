@@ -21,12 +21,12 @@ x = torch.rand(1, d).cuda()
 
 x_re = hsae(x)
 ((x - x_re)**2).sum().backward()
-v_sae = hsae.saes[0].W_dec.data.clone().detach()
+v_sae = hsae.layers[0].W_dec.data.clone().detach()
 v_sae0 = hsae.sae_0.W_dec.data.clone().detach()
 
 optim.step()
 
-print(v_sae==hsae.saes[0].W_dec.data)
+print(v_sae==hsae.layers[0].W_dec.data)
 print(torch.all(v_sae0==hsae.sae_0.W_dec.data))
 
 

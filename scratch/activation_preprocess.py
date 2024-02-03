@@ -1,6 +1,6 @@
 from nqgl.sae.sae.config import AutoEncoderConfig
-from nqgl.sae.setup_utils import get_model
-from nqgl.sae.buffer import Buffer
+from nqgl.sae.training.setup_utils import get_model
+from nqgl.sae.training.buffer import Buffer
 
 import torch
 

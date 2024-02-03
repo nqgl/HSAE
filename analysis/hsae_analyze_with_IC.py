@@ -24,7 +24,7 @@ import pandas as pd
 import einops
 from pathlib import Path
 from nqgl.sae.calculations_on_sae import get_recons_loss, replacement_hook, zero_ablate_hook, mean_ablate_hook
-from nqgl.sae.setup_utils import get_model, load_data, shuffle_documents
+from nqgl.sae.training.setup_utils import get_model, load_data, shuffle_documents
 # from nqgl.sae.analysis.utils_from_others import *
 from nqgl.sae.analysis.analysis_tools import HSAEInterpContext
 #%%
@@ -87,8 +87,8 @@ def tbld(f1, f2=None):
 
 def fb(t, j):
     b = IC.hsae.b_dec[:]
-    bf = IC.hsae.saes[0].b_dec[t, :]
-    ff = IC.hsae.saes[0].W_dec[t, j, :]
+    bf = IC.hsae.layers[0].b_dec[t, :]
+    ff = IC.hsae.layers[0].W_dec[t, j, :]
     return b, bf, ff
 
 def fbu(t,j):
@@ -115,7 +115,7 @@ display(tbld(b1 + f * 10, b0),
 # sl(6, 28)
 # %%
 lb0, lb1, lbf = fbu(t,j)
-IC.hsae.saes[0].W_dec.shape
+IC.hsae.layers[0].W_dec.shape
 # %%
 # IC.create_vocab_df(lbf)
 # IC.create_vocab_df(lbf + lb1)
@@ -210,7 +210,7 @@ IC2 = HSAEInterpContext(hsae2, skiptokens=True)
 # cosine similarities between top level feature and lower level bias
 import matplotlib.pyplot as plt
 tlw = F.normalize(IC1.hsae.sae_0.W_dec, dim=-1).detach().cpu()
-llb = F.normalize(IC1.hsae.saes[0].b_dec, dim=-1).detach().cpu()
+llb = F.normalize(IC1.hsae.layers[0].b_dec, dim=-1).detach().cpu()
 print(tlw.shape)
 print(llb.shape)
 cosim = tlw.T @ llb

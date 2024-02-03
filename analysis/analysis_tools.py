@@ -18,8 +18,8 @@ import pandas as pd
 import einops
 from pathlib import Path
 from nqgl.sae.calculations_on_sae import get_recons_loss, replacement_hook, zero_ablate_hook, mean_ablate_hook
-from nqgl.sae.setup_utils import get_model, load_data, shuffle_documents
-from nqgl.sae.buffer import Buffer
+from nqgl.sae.training.setup_utils import get_model, load_data, shuffle_documents
+from nqgl.sae.training.buffer import Buffer
 from nqgl.sae.sae.base import BaseSAE
 from typing import Optional
 # from utils_from_others import make_token_df
@@ -151,7 +151,7 @@ class HSAEInterpContext(InterpContext):
         model_act_batch_size = tokens.shape[1] * self.hsae.cfg.model_batch_size
 
         hidden_acts_sae0 = torch.zeros(tokens.shape[0] * tokens.shape[1], self.hsae.sae_0.cfg.d_dict, device=self.act_device)
-        hidden_acts_sae1 = torch.zeros(tokens.shape[0] * tokens.shape[1], self.hsae.saes[0].cfg.n_sae, self.hsae.saes[0].cfg.d_dict, device=self.act_device)
+        hidden_acts_sae1 = torch.zeros(tokens.shape[0] * tokens.shape[1], self.hsae.layers[0].cfg.n_sae, self.hsae.layers[0].cfg.d_dict, device=self.act_device)
         for i in range(number_of_batches):
             print(F"{i}/{number_of_batches}")
             with torch.no_grad():
@@ -171,11 +171,11 @@ class HSAEInterpContext(InterpContext):
                 print(model_act_batch_size, model_acts.shape[0])
                 assert model_act_batch_size == model_acts.shape[0]
                 # hidden_acts_sae0 = torch.zeros(model_act_batch_size, self.hsae.sae_0.cfg.d_dict)
-                # hidden_acts_sae1 = torch.zeros(model_act_batch_size, self.hsae.saes[0].cfg.n_sae, self.hsae.saes[0].cfg.d_dict).to(self.hsae.cfg.device)
+                # hidden_acts_sae1 = torch.zeros(model_act_batch_size, self.hsae.layers[0].cfg.n_sae, self.hsae.layers[0].cfg.d_dict).to(self.hsae.cfg.device)
                 for j in range(model_act_batch_size // self.hsae.cfg.batch_size):
                     self.hsae(model_acts[j*self.hsae.cfg.batch_size:(j+1)*self.hsae.cfg.batch_size])
                     hidden_acts_sae0[j*self.hsae.cfg.batch_size + k:(j+1)*self.hsae.cfg.batch_size + k] = self.hsae.sae_0.cached_acts
-                    hidden_acts_sae1[j*self.hsae.cfg.batch_size + k:(j+1)*self.hsae.cfg.batch_size + k] = self.hsae.saes[0].cached_acts
+                    hidden_acts_sae1[j*self.hsae.cfg.batch_size + k:(j+1)*self.hsae.cfg.batch_size + k] = self.hsae.layers[0].cached_acts
                 hidden_acts_sae0.to(self.act_device)
                 hidden_acts_sae1.to(self.act_device)
         return hidden_acts_sae0, hidden_acts_sae1
@@ -227,7 +227,7 @@ class HSAEInterpContext(InterpContext):
 
 
     def get_feature(self, i, j):
-        return self.hsae.saes[0].W_dec[i, j]
+        return self.hsae.layers[0].W_dec[i, j]
 
 
 
