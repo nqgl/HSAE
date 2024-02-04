@@ -2,7 +2,7 @@ import z_sae
 import wandb
 import tqdm
 import torch
-from calculations_on_sae import get_recons_loss, get_freqs, re_init
+from nqgl.sae.training.calculations_on_sae import get_recons_loss, get_freqs, re_init
 from transformer_lens import HookedTransformer
 import time
 from typing import List

@@ -49,9 +49,9 @@ def main():
     loss = hsae.get_loss()
     loss.backward()
     adam.step()
-    for key in adam.state[hsae.saes[0].b_enc].keys():
+    for key in adam.state[hsae.layers[0].b_enc].keys():
         print(key)
-        print(adam.state[hsae.saes[0].b_enc][key].shape)
+        print(adam.state[hsae.layers[0].b_enc][key].shape)
     # for p in groups[0]["params"]:
     #     print(p.shape)
 

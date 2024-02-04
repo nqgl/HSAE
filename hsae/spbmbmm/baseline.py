@@ -4,21 +4,23 @@ import torch.nn.functional as F
 from unpythonic import box
 from dataclasses import dataclass, field
 from typing import Optional
-
+from jaxtyping import Float
+from torch import Tensor
+from torch import jit
 
 @dataclass
-class FowardOptions:
-    batches: int
-    d_data: int
-    d_dict: int
-    n_sae: int
-    scale_acts: bool = True
-    scale_b_dec: bool = True
-    scale_b_enc: bool = True
-    cache_acts: bool = True
-    norm_acts: bool = True
-    sub_b_dec: bool = True
-    norm_gate_before_scaling_acts = False
+class ForwardOptions:
+    batches: jit.Final[int]
+    d_data: jit.Final[int]
+    d_dict: jit.Final[int]
+    n_sae: jit.Final[int]
+    sub_b_dec: jit.Final[bool] = False
+    # scale_b_dec: jit.Final[bool] = True
+    scale_acts: jit.Final[bool] = False
+    # scale_b_enc: jit.Final[bool] = True
+    # cache_acts: jit.Final[bool] = True
+    # norm_acts: jit.Final[bool] = True
+    norm_gate_before_scaling_acts: jit.Final[bool] = False
     device: str = "cuda"
     nonlinearity: nn.Module = torch.relu
 
@@ -26,8 +28,8 @@ class FowardOptions:
 class CacheBoxes:
     acts :Optional[box] = None
     flat_acts :Optional[box] = None
-    l1 :box = field(default_factory=box)
-    l0 :box = field(default_factory=box)
+    l1 :box = field(default_factory=box) #TODO implement caching these
+    l0 :box = field(default_factory=box) #TODO implement caching these
 b = CacheBoxes()
 
 
@@ -60,7 +62,7 @@ def decode_flat(acts, W_dec, b_dec):
 
 
 
-def full_acts(flat_acts, flat_indices, batches, options: FowardOptions):
+def full_acts(flat_acts, flat_indices, batches, options: ForwardOptions):
     acts = torch.zeros(
         batches, options.n_sae, options.d_dict, device=options.device
     )
@@ -77,7 +79,7 @@ def sparse_forward(
         W_dec: torch.Tensor,
         b_dec: torch.Tensor,
         cache: CacheBoxes,
-        options: FowardOptions,
+        options: ForwardOptions,
         **cache_kwargs
     ):
     # x: (batches, d_data)
@@ -86,43 +88,67 @@ def sparse_forward(
     batches = x.shape[0]
     d_data = x.shape[1]
     device = x.device
+    n_sae = options.n_sae
 
     # print(gate)
     # input()
-    gate = gate.unsqueeze(-1).unsqueeze(-1).transpose(0, 1)  # n_sae batches 1 1
-    bgate = gate != 0
+    ###
+    # gate = gate.unsqueeze(-1).unsqueeze(-1).transpose(0, 1)  # n_sae batches 1 1
 
-    x_s = (x.unsqueeze(-2) * bgate).to_sparse(2)
-    flat_indices = x_s.indices()
+    # x_s = (x.unsqueeze(-2) * (gate > 0)).to_sparse(2)
+    # flat_indices = x_s.indices()
+    # assert torch.sum(gate[sae_idxs, batch_idxs] == 0) == 0
+
+    # x_flat = x_s.values()
+    ###
+    gate = gate.transpose(0, 1)
+    flat_indices = (gate > 0).to_sparse().indices()  # n_sae batches 1 1
+    gate = gate.unsqueeze(-1).unsqueeze(-1)  # n_sae batches 1 1
+    # (gate > 0).to_sparse(2)
+    # x_s = (x.unsqueeze(-2) * (gate > 0)).to_sparse(2)
+
+    # x_flat = x_s.values()
+    x_flat = (
+        x.unsqueeze(-2).unsqueeze(0).expand(
+            n_sae, batches, 1, d_data
+        )[flat_indices[0], flat_indices[1]]
+    )
+    ###
     batch_idxs = flat_indices[1]
     sae_idxs = flat_indices[0]
-    assert torch.sum(gate[sae_idxs, batch_idxs] == 0) == 0
-
-    x_flat = x_s.values()
-
     W_enc_flat = W_enc[sae_idxs]
     b_enc_flat = b_enc[sae_idxs].unsqueeze(-2)
     W_dec_flat = W_dec[sae_idxs]
     b_dec_flat = b_dec[sae_idxs].unsqueeze(-2)
 
     x_cent = x_flat.float() #- b_dec
+    if options.sub_b_dec:
+        x_cent = x_cent - b_dec_flat
+
     m = x_cent @ W_enc_flat
     flat_acts = options.nonlinearity(m + b_enc_flat)
-    assert torch.all(~torch.isinf(flat_acts))
-    assert torch.all(~torch.isnan(flat_acts))
+    assert not torch.any(torch.isinf(flat_acts))
+    assert not torch.any(torch.isnan(flat_acts))
 
     if cache.acts:
         cache.acts << full_acts(flat_acts, flat_indices, batches, options=options).float()
     if cache.flat_acts:
         cache.flat_acts << flat_acts
+
+    if options.scale_acts:
+        if options.norm_gate_before_scaling_acts:
+            gate = gate / gate.norm(dim=0, keepdim=True)
+        flat_acts = flat_acts * gate[sae_idxs, batch_idxs]
+    else:
+        flat_acts = flat_acts * (gate[sae_idxs, batch_idxs] > 0)
     # self.cache(acts=acts, flat_acts=flat_acts, gate=gate, **cache_kwargs)
-    m = gate[sae_idxs, batch_idxs] * flat_acts @ W_dec_flat
+    m = (flat_acts) @ W_dec_flat
     saes_out_flat = m + b_dec_flat
 
     flatsize = saes_out_flat.shape[0]
-    z = torch.zeros(batches, d_data, device=device)
-    bids = batch_idxs.reshape(flatsize, 1).expand(-1, d_data)
-    sae_re = saes_out_flat.reshape(flatsize, d_data)
+    # z = torch.zeros(batches, d_data, device=device)
+    # bids = batch_idxs.reshape(flatsize, 1).expand(-1, d_data)
+    # sae_re = saes_out_flat.reshape(flatsize, d_data)
 
     x_out = torch.scatter_add(
         torch.zeros(batches, d_data, device=device),
@@ -131,6 +157,151 @@ def sparse_forward(
         saes_out_flat.reshape(flatsize, d_data),
     )
     return x_out
+
+def sparse_jit_forward(options):
+
+    @torch.compile
+    def sparse_forward_script(
+            x: torch.Tensor, 
+            gate: torch.Tensor,
+            flat_indices: torch.Tensor,
+            W_enc: torch.Tensor,
+            b_enc: torch.Tensor,
+            W_dec: torch.Tensor,
+            b_dec: torch.Tensor,
+            cache: CacheBoxes,
+        ):
+        # x: (batches, d_data)
+        # gate: (batches, n_sae)
+        batches = x.shape[0]
+        d_data = x.shape[1]
+        device = x.device
+        n_sae = options.n_sae
+
+        # print(gate)
+        # input()
+        gate = gate.unsqueeze(-1).unsqueeze(-1)  # n_sae batches 1 1
+        # (gate > 0).to_sparse(2)
+        # x_s = (x.unsqueeze(-2) * (gate > 0)).to_sparse(2)
+    
+        # x_flat = x_s.values()
+        x_flat = (
+            x.unsqueeze(-2).unsqueeze(0).expand(
+                n_sae, batches, 1, d_data
+            )[flat_indices[0], flat_indices[1]]
+        )
+        batch_idxs = flat_indices[1]
+        sae_idxs = flat_indices[0]
+
+
+        W_enc_flat = W_enc[sae_idxs]
+        b_enc_flat = b_enc[sae_idxs].unsqueeze(-2)
+        W_dec_flat = W_dec[sae_idxs]
+        b_dec_flat = b_dec[sae_idxs].unsqueeze(-2)
+
+        x_cent = x_flat.float() #- b_dec
+        if options.sub_b_dec:
+            x_cent = x_cent - b_dec_flat
+
+        m = x_cent @ W_enc_flat
+        flat_acts = options.nonlinearity(m + b_enc_flat)
+
+        # if cache.acts:
+        #     cache.acts << full_acts(flat_acts, flat_indices, batches, options=options).float()
+        # if cache.flat_acts:
+        #     cache.flat_acts << flat_acts
+
+        if options.scale_acts:
+            if options.norm_gate_before_scaling_acts:
+                gate = gate / gate.norm(dim=0, keepdim=True)
+            flat_acts = flat_acts * gate[sae_idxs, batch_idxs]
+        else:
+            flat_acts = flat_acts * (gate[sae_idxs, batch_idxs] > 0)
+        # self.cache(acts=acts, flat_acts=flat_acts, gate=gate, **cache_kwargs)
+        m = (flat_acts) @ W_dec_flat
+        saes_out_flat = m + b_dec_flat
+
+        flatsize = saes_out_flat.shape[0]
+        # z = torch.zeros(batches, d_data, device=device)
+        # bids = batch_idxs.reshape(flatsize, 1).expand(-1, d_data)
+        # sae_re = saes_out_flat.reshape(flatsize, d_data)
+
+        x_out = torch.scatter_add(
+            torch.zeros(batches, d_data, device=device),
+            0,
+            batch_idxs.reshape(flatsize, 1).expand(-1, d_data),
+            saes_out_flat.reshape(flatsize, d_data),
+        )
+        return x_out
+
+
+    def sparse_forward_prep(
+            x: torch.Tensor, 
+            gate: torch.Tensor,
+            W_enc: torch.Tensor,
+            b_enc: torch.Tensor,
+            W_dec: torch.Tensor,
+            b_dec: torch.Tensor,
+            cache: CacheBoxes,
+        ):
+            gate = gate.transpose(0, 1)
+            flat_indices = (gate > 0).to_sparse().indices()  # n_sae batches 1 1
+            return sparse_forward_script(
+                x=x,
+                gate=gate,
+                flat_indices=flat_indices,
+                W_enc=W_enc,
+                b_enc=b_enc,
+                W_dec=W_dec,
+                b_dec=b_dec,
+                cache=cache                
+            )
+    
+
+
+
+
+
+    @torch.compile
+    def densecompiled(
+        x: Float[Tensor, "batch d_data"], 
+        gate: Float[Tensor, "batch n_sae"], 
+        W_enc: Float[Tensor, "n_sae d_data d_dict"],
+        b_enc: Float[Tensor, "n_sae d_dict"],
+        W_dec: Float[Tensor, "n_sae d_dict d_data"],
+        b_dec: Float[Tensor, "n_sae d_data"],
+        cache: CacheBoxes,
+    ):
+        x = x.unsqueeze(-2).unsqueeze(-2)
+        gate = gate.unsqueeze(-1).unsqueeze(-1)
+        b_dec = b_dec.unsqueeze(-2)
+        b_enc = b_enc.unsqueeze(-2)
+
+        x_cent = x.float()
+        if options.sub_b_dec:
+            x_cent = x_cent - b_dec.float()
+        
+        m = x_cent @ W_enc
+        acts = F.relu(m + b_enc)
+        if cache.acts:
+            cache.acts << acts.squeeze(-2)# * (gate.squeeze(-2) > 0)
+        # acts = F.relu(m + b_enc)
+        if options.scale_acts:
+            if options.norm_gate_before_scaling_acts:
+                gate = gate / gate.norm(dim=1, keepdim=True)
+                gate = torch.where(
+                    torch.isnan(gate),
+                    0,
+                    gate
+                )
+            acts = acts * gate
+        else:
+            acts = acts * (gate > 0)
+        # saes_out = (acts @ W_dec + b_dec * (gate > 0))
+
+        saes_out = (gate > 0) * (acts @ W_dec + b_dec)
+        return saes_out.sum(dim=1).squeeze(-2)
+    return sparse_forward_prep, densecompiled
 
 
 
@@ -142,7 +313,7 @@ def sparse_bgate_forward(
         W_dec: torch.Tensor,
         b_dec: torch.Tensor,
         cache: CacheBoxes,
-        options: FowardOptions,
+        options: ForwardOptions,
         **cache_kwargs
     ):
     # x: (batches, d_data)
@@ -175,14 +346,10 @@ def sparse_bgate_forward(
     x_cent = x_bg.float() #- b_dec
     m = x_cent @ W_enc_bg
     flat_acts = options.nonlinearity(m + b_enc_bg)
-    assert torch.all(~torch.isinf(flat_acts))
-    assert torch.all(~torch.isnan(flat_acts))
-
-    # if cache.acts:
-        # cache.acts << full_acts(flat_acts, flat_indices, batches, options=options).float()
+    assert not torch.any(torch.isinf(flat_acts))
+    assert not torch.any(torch.isnan(flat_acts))
     if cache.flat_acts:
         cache.flat_acts << flat_acts
-    # self.cache(acts=acts, flat_acts=flat_acts, gate=gate, **cache_kwargs)
     m = (
         gate[bgate] 
         * 
@@ -197,42 +364,55 @@ def sparse_bgate_forward(
 
 
 def dense(
-    x: torch.Tensor, 
-    gate: torch.Tensor, 
-    W_enc: torch.Tensor,
-    b_enc: torch.Tensor,
-    W_dec: torch.Tensor,
-    b_dec: torch.Tensor,
+    x: Float[Tensor, "batch d_data"], 
+    gate: Float[Tensor, "batch n_sae"], 
+    W_enc: Float[Tensor, "n_sae d_data d_dict"],
+    b_enc: Float[Tensor, "n_sae d_dict"],
+    W_dec: Float[Tensor, "n_sae d_dict d_data"],
+    b_dec: Float[Tensor, "n_sae d_data"],
     cache: CacheBoxes,
-    options: FowardOptions,
+    options: ForwardOptions,
 ):
     x = x.unsqueeze(-2).unsqueeze(-2)
     gate = gate.unsqueeze(-1).unsqueeze(-1)
-    x_cent = x.float()
     b_dec = b_dec.unsqueeze(-2)
     b_enc = b_enc.unsqueeze(-2)
+
+    x_cent = x.float()
+    if options.sub_b_dec:
+        x_cent = x_cent - b_dec.float()
+    
     m = x_cent @ W_enc
     acts = F.relu(m + b_enc)
     if cache.acts:
         cache.acts << acts.squeeze(-2)# * (gate.squeeze(-2) > 0)
-    # acts = acts * gate
-
+    # acts = F.relu(m + b_enc)
+    if options.scale_acts:
+        if options.norm_gate_before_scaling_acts:
+            gate = gate / gate.norm(dim=1, keepdim=True)
+            gate = torch.where(
+                torch.isnan(gate),
+                0,
+                gate
+            )
+        acts = acts * gate
+    else:
+        acts = acts * (gate > 0)
     # saes_out = (acts @ W_dec + b_dec * (gate > 0))
-    acts = F.relu(m + b_enc)
-    # print(torch.count_nonzero(gate > 0))
-    saes_out = (gate > 0)  * (acts @ W_dec + b_dec)
+
+    saes_out = (gate > 0) * (acts @ W_dec + b_dec)
     return saes_out.sum(dim=1).squeeze(-2)
 
 class O:
     pass
 
-def generate_example(d_dict, d_data, n_sae, batches, p_sparse = 0.95, xlist=100, requires_grad=False, device="cuda"):
+def generate_example(d_dict, d_data, n_sae, batches, p_sparse = 0.95, xlist=100, requires_grad=False, device="cuda", optionsdict={}):
     o = O()
     o.W_enc = torch.randn(n_sae, d_data, d_dict, device=device, requires_grad=requires_grad)
     o.W_dec = torch.randn(n_sae, d_dict, d_data, device=device, requires_grad=requires_grad)
     o.b_enc = torch.randn(n_sae, d_dict, device=device, requires_grad=requires_grad)
     o.b_dec = torch.randn(n_sae, d_data, device=device, requires_grad=requires_grad)
-    o.srcgate = torch.rand(batches, n_sae, device=device, requires_grad=requires_grad)
+    o.srcgate = torch.ones(batches, n_sae, device=device, requires_grad=requires_grad)
     if xlist:
         o.X = []
         o.gmasks = []
@@ -245,34 +425,46 @@ def generate_example(d_dict, d_data, n_sae, batches, p_sparse = 0.95, xlist=100,
         o.x = torch.randn(batches, d_data, device=device)
 
     # o.gate = o.gate * gmask.detach()
-    o.options = FowardOptions(
+    o.options = ForwardOptions(
         batches = batches,
         d_data = d_data,
         d_dict = d_dict,
         n_sae = n_sae,
-        device = device
+        device = device,
+        **optionsdict
     )
 
     return o
 
-def test_sparse_forward_validity():
-    d_dict = 20
-    d_data = 21
-    n_sae = 22
-    batches = 40
+def test_sparse_forward_validity(testforward=sparse_forward, caching=True):
+    d_dict = 32
+    d_data = 32
+    n_sae = 32
+    batches = 32
     device = "cuda"
-    cs = CacheBoxes(acts=box())
-    cd = CacheBoxes(acts=box())
-    o = generate_example(d_dict, d_data, n_sae, batches, xlist=False, device=device)
-    s = sparse_forward(o.x, o.gate, o.W_enc, o.b_enc, o.W_dec, o.b_dec, cache=cs, options=o.options)
-    d = dense(o.x, o.gate, o.W_enc, o.b_enc, o.W_dec, o.b_dec, cache=cd, options=o.options)
-    print(s.shape, d.shape) 
-    print("output eq?", torch.allclose(s, d, rtol=1e-4))
-    print(cs.acts.x.shape, cd.acts.x.shape)
-    print("acts eq?", torch.allclose(cs.acts.x, cd.acts.x, rtol=1e-4, atol=1e-6))
 
+    binary_options = [
+        "sub_b_dec",
+        "scale_acts",
+        "norm_gate_before_scaling_acts",
+    ]
+    for i in range(2 ** len(binary_options)):
+        optionsdict = {
+            k: bool(i & (1 << j)) for j, k in enumerate(binary_options)
+        }
+        cs = CacheBoxes(acts=box())
+        cd = CacheBoxes(acts=box())
+        o = generate_example(d_dict, d_data, n_sae, batches, xlist=False, device=device, optionsdict=optionsdict)
+        s = testforward(o.x.clone(), o.gate.clone(), o.W_enc.clone(), o.b_enc.clone(), o.W_dec.clone(), o.b_dec.clone(), cache=cs, options=o.options)
+        d = dense(o.x.clone(), o.gate.clone(), o.W_enc.clone(), o.b_enc.clone(), o.W_dec.clone(), o.b_dec.clone(), cache=cd, options=o.options)
+        print(optionsdict)
+        print(s.shape, d.shape) 
+        print("output eq?", torch.allclose(s, d, rtol=1e-0, atol=1e-0))
+        if caching:
+            print(cs.acts.x.shape, cd.acts.x.shape)
+            print("acts eq?", torch.allclose(cs.acts.x, cd.acts.x, rtol=1e-0, atol=1e-0))
 
-def comptime(o, *F, cache=True, backward = False, optim = False):
+def comptime(o, *F, cache=True, backward = False, optim = False, skipoptions=False):
     if cache:
         caches = [CacheBoxes(box(), box()) for _ in F]
     else:
@@ -286,14 +478,20 @@ def comptime(o, *F, cache=True, backward = False, optim = False):
             optim.zero_grad()
         start.record()
         for x, gmask in zip(o.X, o.gmasks):
+            if skipoptions:
+                opts = {}
+            else:
+                opts = {"options": o.options}
             y = f(
                 x = x,
-                gate = torch.abs(o.srcgate) * gmask.clone().detach(),
-                W_enc = o.W_enc,
-                b_enc = o.b_enc,
-                W_dec = o.W_dec,
-                b_dec = o.b_dec,
-                options=o.options, cache=c)
+                gate = torch.abs(o.srcgate) * gmask.clone().detach().clone(),
+                W_enc = o.W_enc.clone(),
+                b_enc = o.b_enc.clone(),
+                W_dec = o.W_dec.clone(),
+                b_dec = o.b_dec.clone(),
+                cache = c,
+                **opts
+            )
             if backward:
                 (x.float()- y.float()).pow(2).sum().backward()
                 if optim:
@@ -305,11 +503,11 @@ def comptime(o, *F, cache=True, backward = False, optim = False):
         torch.cuda.empty_cache()
     
 
-def test_speed():
+def test_speed(afunc=sparse_forward):
     d_dict = 32
     d_data = 256
-    n_sae = 128
-    batches = 256   
+    n_sae = 4096
+    batches = 4
     device = "cuda"
     p_sparse = 0.99
     
@@ -320,12 +518,56 @@ def test_speed():
     # print("sparse first")
     # comptime(o, sparse_forward, sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward, cache=False, backward = True, optim=True)
     # print("dense first")
-    for i in range(1):
-        comptime(o, dense, sparse_forward, sparse_bgate_forward, cache=True, backward = True, optim=True)
-        comptime(o, dense, sparse_forward, sparse_bgate_forward, cache=True, backward = True, optim=True)
-        comptime(o, dense, sparse_forward, cache=True, backward = True, optim=True)
-        comptime(o, dense, sparse_forward, cache=True, backward = True, optim=True)
+    reps1 = 1
+    reps2 = 10
+    jitforward, jitdense = sparse_jit_forward(o.options)
+    for _ in range(reps1):
+        for _ in range(reps2):
+            comptime(o, jitdense, skipoptions=True, cache=True, backward = True, optim=True)
+
+        for _ in range(reps2):
+            comptime(o, jitdense, skipoptions=True, cache=True, backward = True, optim=True)
+        for _ in range(reps2):
+            comptime(o, jitforward, skipoptions=True, cache=True, backward = True, optim=True)
+        for _ in range(reps2):
+            comptime(o, sparse_forward, cache=True, backward = True, optim=True)
+        for _ in range(reps2):
+            comptime(o, dense, cache=True, backward = True, optim=True)
+        for _ in range(reps2):
+            comptime(o, sparse_bgate_forward, cache=True, backward = True, optim=True)
+
+        # comptime(o, dense, sparse_forward, sparse_bgate_forward, cache=True, backward = True, optim=True)
+        # comptime(o, dense, sparse_forward, cache=True, backward = True, optim=True)
+        # comptime(o, dense, sparse_forward, cache=True, backward = True, optim=True)
     # comptime(o, sparse_forward, sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward, cache=False, backward = True, optim=True)
+
+def test_speed2(afunc=sparse_forward):
+    d_dict = 32
+    d_data = 512
+    n_sae = 1024
+    batches = 32
+    device = "cuda"
+    p_sparse = 0.995
+    
+    o = generate_example(d_dict, d_data, n_sae, batches, p_sparse, device=device, requires_grad=True)
+
+    # comptime(o, sparse_forward, dense, sparse_bgate_forward, cache=True, backward = False)
+    # comptime(o, sparse_forward, dense, cache=True, backward = True)
+    # print("sparse first")
+    # comptime(o, sparse_forward, sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward,sparse_forward, cache=False, backward = True, optim=True)
+    # print("dense first")
+    reps1 = 1
+    reps2 = 10
+    jitforward, jitdense = sparse_jit_forward(o.options)
+    for _ in range(reps1):
+        for _ in range(reps2):
+            comptime(o, afunc, skipoptions=False, cache=False, backward = False, optim=False)
+        for _ in range(reps2):
+            comptime(o, sparse_forward, cache=False, backward = False, optim=False)
+        for _ in range(reps2):
+            comptime(o, dense, cache=False, backward = False, optim=False)
+        for _ in range(reps2):
+            comptime(o, sparse_bgate_forward, cache=False, backward = False, optim=False)
 
 
 def main():

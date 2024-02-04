@@ -3,7 +3,7 @@ from nqgl.sae.hsae.config import (
     HierarchicalAutoEncoderLayerConfig,
 )
 from nqgl.sae.sae.model import AutoEncoder, AutoEncoderConfig
-from nqgl.sae.setup_utils import DTYPES
+from nqgl.sae.training.setup_utils import DTYPES
 import torch
 import torch.nn as nn
 import logging

@@ -1,8 +1,8 @@
-from nqgl.sae.buffer import Buffer
+from nqgl.sae.training.buffer import Buffer
 from nqgl.sae.sae.model import AutoEncoder, AutoEncoderConfig
 from hsae.hsae import HierarchicalAutoEncoder, HierarchicalAutoEncoderConfig
-from nqgl.sae.setup_utils import get_model, load_data
-from calculations_on_sae import get_recons_loss
+from nqgl.sae.training.setup_utils import get_model, load_data
+from nqgl.sae.training.calculations_on_sae import get_recons_loss
 from transformer_lens import HookedTransformer
 from toy_models.toy_model import ToyModel, ToyModelConfig
 import wandb
@@ -87,10 +87,10 @@ def train(
                     }
                 )
 
-                for i in range(len(encoder.saes)):
-                    sae = encoder.saes[i]
-                    l1_loss = encoder.saes[i].cached_l1_loss
-                    l0_norm = encoder.saes[i].cached_l0_norm
+                for i in range(len(encoder.layers)):
+                    sae = encoder.layers[i]
+                    l1_loss = encoder.layers[i].cached_l1_loss
+                    l0_norm = encoder.layers[i].cached_l0_norm
                     queued = sae.neurons_to_be_reset.shape[0] if sae.neurons_to_be_reset is not None else 0
                     wandb.log(
                         {

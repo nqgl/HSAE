@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Any, List
-from novel_nonlinearities import undying_relu
+from sae.novel_nonlinearities import undying_relu
 import os
 from dataclasses import dataclass
 

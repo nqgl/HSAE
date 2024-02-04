@@ -1,14 +1,20 @@
-from nqgl.sae.buffer import Buffer
-from nqgl.sae.sae.model import AutoEncoder, AutoEncoderConfig
-from nqgl.sae.setup_utils import get_model, load_data
-from calculations_on_sae import get_recons_loss
 from transformer_lens import HookedTransformer
 from toy_models.toy_model import ToyModel, ToyModelConfig
-from analysis.visualize_features import visualize_by_heatmap
+from analysis.visualize_features import visualize_by_heatmap, visualize_by_heatmap2
 import wandb
 import tqdm
 import torch
 import time
+from matplotlib import pyplot as plt
+
+
+from nqgl.sae.training.buffer import Buffer
+from nqgl.sae.sae.model import AutoEncoder, AutoEncoderConfig
+from nqgl.sae.training.setup_utils import get_model, load_data
+from nqgl.sae.training.calculations_on_sae import get_recons_loss
+
+from toy_models import two_features
+from toy_models import toy_model
 
 
 def train(encoder: AutoEncoder, cfg: AutoEncoderConfig, buffer: ToyModel):
@@ -16,10 +22,7 @@ def train(encoder: AutoEncoder, cfg: AutoEncoderConfig, buffer: ToyModel):
     t0 = time.time()
     try:
         run = wandb.init(
-            project="features_toy_model",
-            entity="sae_all",
-            config={"encoder": cfg, "toy": buffer.cfg},
-            mode="disabled",
+            project="features_toy_model", entity="sae_all", config=cfg, mode="disabled"
         )
 
         num_batches = cfg.num_tokens // cfg.batch_size
@@ -79,7 +82,7 @@ def train(encoder: AutoEncoder, cfg: AutoEncoderConfig, buffer: ToyModel):
                 wandb.log(loss_dict)
                 print(loss_dict, run.name)
             if i % 500 == 0:
-                visualize_by_heatmap(buffer, encoder)
+                visualize_by_heatmap2(buffer, encoder)
             if (i) % 5000 == 0:
                 freqs = (
                     encoder.neuron_activation_frequency
@@ -95,16 +98,16 @@ def train(encoder: AutoEncoder, cfg: AutoEncoderConfig, buffer: ToyModel):
                         "total time": time.time() - t0,
                     }
                 )
-            if i == 13501:
+            if i == 1351:
                 encoder.reset_activation_frequencies()
-            elif i % 15000 == 13501 and i > 1500:
+            elif i % 2000 == 1351 and i > 1500:
                 encoder.save(name=run.name)
                 t1 = time.time()
                 freqs = (
                     encoder.neuron_activation_frequency
                     / encoder.steps_since_activation_frequency_reset
                 )
-                to_be_reset = freqs < 10 ** (-5.5)
+                to_be_reset = freqs < 10 ** (-4)
                 print("Resetting neurons!", to_be_reset.sum())
                 if to_be_reset.sum() > 0:
                     encoder.queue_neurons_to_reset(to_be_reset)
@@ -130,38 +133,71 @@ def linspace_l1(ae, l1_radius):
     ae.l1_coeff = l1
 
 
+n_features = 6
+d_data = 32
 cfg = AutoEncoderConfig(
     site="toy_model",
-    d_data=64,
+    d_data=d_data,
     layer=1,
     gram_shmidt_trail=512,
     num_to_resample=4,
-    l1_coeff=14e-4,
-    dict_mult=1,
-    batch_size=128,
+    l1_coeff=14e-3,
+    dict_mult=(n_features) / d_data + 1e-4,
+    batch_size=8,
     beta2=0.999,
-    lr=3e-4,
+    lr=3e-3,
 )
 
 
 def main():
+    plt.show()
     encoder = AutoEncoder(cfg)
-    toycfg = ToyModelConfig(
-        d_data=cfg.d_data,
-        n_features=32,
-        num_correlation_rounds=10,
-        batch_size=cfg.batch_size,
-        blank_correlations=False,
-        initial_features=3,
-        features_per_round=2,
-        features_per_round_negative=4,
-        seed=50,
-        correlation_drop=0.9,
-        source_prob_drop=0.85,
+    # toycfg = ToyModelConfig(d_data = cfg.d_data, n_features=1024, num_correlation_rounds=2, batch_size=cfg.batch_size)
+    # toy = ToyModel(toycfg)
+    toy = two_features.get_simple_hierarchy_model(
+        d_data=cfg.d_data, n_features=n_features
+    )
+    # toy.correlations = []
+    toy.f_stds[:] = 0
+    toy.f_means[:] = 1
+    toy.f_means[0] = 5
+    toy.f_probs[:] = 1
+    toy.f_probs[1] = 0
+    # toy.correlations = []
+    toy.cfg.initial_features = 3
+    encoder.update_scaling(toy.next())
+    train(encoder, cfg, toy)
+
+
+def main2():
+    plt.show()
+    encoder = AutoEncoder(cfg)
+    # toycfg = ToyModelConfig(d_data = cfg.d_data, n_features=1024, num_correlation_rounds=2, batch_size=cfg.batch_size)
+    # toy = ToyModel(toycfg)
+    toy = two_features.get_simple_hierarchy_model(
+        d_data=cfg.d_data, n_features=n_features, rounds=4
+    )
+    toy.cfg.initial_features = 3
+
+    toy.add_hierarchical_feature(
+        toy.correlations[0],
+        src=0,
+        dest=torch.arange(0, 1, device=toy.cfg.device),
+        weight=1,
     )
 
-    toy = ToyModel(toycfg)
-    toy.f_means[:] = 1
+    toy.add_hierarchical_feature(
+        toy.correlations[1],
+        src=4,
+        dest=torch.arange(5, 9, device=toy.cfg.device),
+        weight=1,
+    )
+
+    toy.add_hierarchical_feature(toy.correlations[3], src=7, dest=(8, 9, 10), weight=1)
+
+    toy.add_hierarchical_feature(toy.correlations[3], src=8, dest=(4, 7), weight=-1)
+
+    encoder.update_scaling(toy.next())
     train(encoder, cfg, toy)
 
 

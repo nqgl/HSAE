@@ -1,8 +1,8 @@
-from nqgl.sae.buffer import Buffer
+from nqgl.sae.training.buffer import Buffer
 from nqgl.sae.sae.model import AutoEncoder, AutoEncoderConfig
 from hsae.hsae import HierarchicalAutoEncoder, HierarchicalAutoEncoderConfig
-from nqgl.sae.setup_utils import get_model, load_data
-from calculations_on_sae import get_recons_loss
+from nqgl.sae.training.setup_utils import get_model, load_data
+from nqgl.sae.training.calculations_on_sae import get_recons_loss
 from transformer_lens import HookedTransformer
 import wandb
 import tqdm

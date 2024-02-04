@@ -24,16 +24,16 @@ import pandas as pd
 import einops
 from pathlib import Path
 from nqgl.sae.calculations_on_sae import get_recons_loss, replacement_hook, zero_ablate_hook, mean_ablate_hook
-from nqgl.sae.setup_utils import get_model, load_data, shuffle_documents
+from nqgl.sae.training.setup_utilstup_utils import get_model, load_data, shuffle_documents
 from nqgl.sae.analysis.utils_from_others import *
 #%%
 hsae = HierarchicalAutoEncoder.load_latest(name="absurd-blaze")
 # %%
-from nqgl.sae.buffer import Buffer
+from nqgl.sae.training.buffer import Buffer
 
 model = get_model(hsae.cfg)
 all_tokens = load_data(model)
-buffer =Buffer(hsae.cfg, all_tokens, model, dont_shuffle=True)
+buffer = Buffer(hsae.cfg, all_tokens, model, dont_shuffle=True)
 #%%
 
 SPACE = "·"
@@ -59,7 +59,7 @@ batch_size = 32
 number_of_batches = 40
 tokens = all_tokens[:batch_size*number_of_batches]
 activations = []
-sae1 = hsae.saes[0]
+sae1 = hsae.layers[0]
 # tokens = []
 
 
@@ -79,7 +79,7 @@ for i in range(number_of_batches):
         hidden_acts = torch.zeros(model_acts.shape[0], sae1.cfg.n_sae, sae1.cfg.d_dict).to(cfg.device)
         for j in range(model_acts.shape[0] // hsae.cfg.batch_size):
             hsae(model_acts[j*hsae.cfg.batch_size:(j+1)*hsae.cfg.batch_size])
-            hidden_acts[j*hsae.cfg.batch_size:(j+1)*hsae.cfg.batch_size] = hsae.saes[0].cached_acts
+            hidden_acts[j*hsae.cfg.batch_size:(j+1)*hsae.cfg.batch_size] = hsae.layers[0].cached_acts
         activations.append(hidden_acts.cpu().numpy())
         
         # x_reconstruct = hsae(model_acts)
