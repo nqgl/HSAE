@@ -1,6 +1,6 @@
 Initial investigations:
 
-![Initial](images/intial.png)
+![Initial](images/initial.png)
 
 What this is:
 
