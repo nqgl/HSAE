@@ -14,16 +14,15 @@ import logging
 import types
 
 
-
 class HierarchicalAutoEncoder(BaseSAE, nn.Module):
     sae_type = "HSAE"
     CONFIG = HierarchicalAutoEncoderConfig
 
     def __init__(
-        self, 
-        cfg: HierarchicalAutoEncoderConfig, 
+        self,
+        cfg: HierarchicalAutoEncoderConfig,
         sae0: Optional[AutoEncoder] = None,
-        init_with_sae0_feature = True
+        init_with_sae0_feature=True,
     ):
         super().__init__()
         self.sae_0 = AutoEncoder(cfg) if sae0 is None else sae0
@@ -36,33 +35,32 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
         self.neurons_to_be_reset = None
         self.steps_since_activation_frequency_reset = None
         self.cached_x_diff = None
-        self.b_dec = nn.Parameter(torch.zeros(cfg.d_data, dtype=torch.float32)).to(cfg.device)
+        self.b_dec = nn.Parameter(torch.zeros(cfg.d_data, dtype=torch.float32)).to(
+            cfg.device
+        )
         if sae0 is not None and init_with_sae0_feature:
             with torch.no_grad():
                 for i in range(sae0.cfg.d_dict):
                     feature = sae0.W_dec[i]
-                    self.layers[0].b_dec[i] = feature     #TODO expand for >2 layers case
+                    self.layers[0].b_dec[i] = feature  # TODO expand for >2 layers case
                 self.b_dec.data[:] = sae0.b_dec
-# I need to add centering with the b_dec per the hsae
+        # I need to add centering with the b_dec per the hsae
         self.sae_0_frozen = False
         self.sae_0.cfg.scale_in_forward = False
 
-
     def forward(
-        self, 
-        x, 
-        rescaling=False, 
-        record_activation_frequency=False, 
+        self,
+        x,
+        rescaling=False,
+        record_activation_frequency=False,
         dense=True,
-        re_init=True
+        re_init=True,
     ):
         if rescaling:
             self.sae_0.update_scaling(x)
         x = self.sae_0.scale(x)
         cache_kwargs = dict(
-            cache_acts=True, 
-            cache_l0=True, 
-            record_activation_frequency=True
+            cache_acts=True, cache_l0=True, record_activation_frequency=True
         )
         x_orig = x
         x_0 = self.sae_0(x_orig, **cache_kwargs)
@@ -77,11 +75,7 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
         for sae in self.layers:
             x_ = x if not self.cfg.sublayers_train_on_error else x - x_n
             gate = self.gate(acts)
-            x_next = sae(
-                x_, 
-                gate, 
-                dense=prev.cached_l0_norm > 50, 
-                prev_sae=prev)
+            x_next = sae(x_, gate, dense=prev.cached_l0_norm > 50, prev_sae=prev)
             # print("x_next", x_next.shape)
             # print("x_n", x_n.shape)
             # print("x_n", x_n.shape)
@@ -99,7 +93,7 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
         self.cached_l2_loss = (self.cached_x_diff) ** 2
         self.cached_l1_loss = self.sae_0.cached_l1_loss
         self.cached_l0_norm = self.sae_0.cached_l0_norm
-        
+
         return self.sae_0.unscale(x_n)
 
     def gate(self, acts):
@@ -109,15 +103,13 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
             return acts / (acts.norm(dim=-1, keepdim=True) + 1e-9)
         elif self.cfg.gate_mode == "acts":
             return acts
-        
+
     def get_loss(self):
         l = self.cached_l2_loss.mean()
         l += (self.sae_0.cached_l1_loss).sum(-1).mean() * self.sae_0.cfg.l1_coeff
         for sae in self.layers:
             l += sae.get_loss()
         return l
-    
-
 
     def re_init_neurons(self, norm_encoder_proportional_to_alive=True):
         """
@@ -129,7 +121,6 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
             if sae.neurons_to_be_reset is not None:
                 sae.re_init_neurons(self.cached_x_diff, sae.cached_gate)
 
-
     def freeze_sae0(self):
         for p in self.sae_0.parameters():
             p.requires_grad = False
@@ -137,22 +128,18 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
 
     def get_features_and_bias(self, layer, feature_index):
         return features, bias
-    
-
-
-
 
     def histograms(self):
         import wandb
+
         freq = self.sae_0.get_activation_frequencies()
         ll_freq_bar = wandb.Histogram(freq.cpu().numpy())
 
         return {
             # "l0_hist" : head_l0_bar,()
-            "lower_level_frequencies" : ll_freq_bar,
-
+            "lower_level_frequencies": ll_freq_bar,
         }
-        
+
     def loss_contributions(self, x):
         """
         Returns a dictionary of the contribution of each layer to the loss
@@ -176,14 +163,7 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
             d[f"sae{i} mse contrib"] = contrib[i] / mse
         return d
 
-
-
-
-    @call_method_on_layers(
-        skip = lambda s, i, *a, **k: (
-            s.sae_0_frozen and i == -1
-        )
-    )
+    @call_method_on_layers(skip=lambda s, i, *a, **k: (s.sae_0_frozen and i == -1))
     def make_decoder_weights_and_grad_unit_norm(self, out, *args, **kwargs):
         pass
 
@@ -199,18 +179,10 @@ class HierarchicalAutoEncoder(BaseSAE, nn.Module):
     def get_activation_frequencies(self, out, *args, **kwards):
         logging.warn("Called get_activation_frequencies")
         return out
-    
+
     @call_method_on_layers
     def resampling_check(self, out, *args, **kwargs):
         pass
-
-
-
-
-
-
-
-
 
 
 # for testing
