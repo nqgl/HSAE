@@ -1,23 +1,23 @@
 import torch
-from baseline import (
-    CacheBoxes, ForwardOptions, test_sparse_forward_validity, test_speed2
-)
+from baseline import test_sparse_forward_validity, test_speed_forward
 import einops
-from nqgl.bmask_bmm.cust_tri_matmuls.sparse_batch_masked.spmask_spoutnogate import(
-    masked_matmul
-) 
+from hsae.spbmbmm.fwd_params import CacheBoxes, ForwardOptions
+from nqgl.bmask_bmm.cust_tri_matmuls.sparse_batch_masked.spmask_spoutnogate import (
+    masked_matmul,
+)
+
 
 def sparse_forward_triton(
-        x: torch.Tensor, 
-        gate: torch.Tensor, 
-        W_enc: torch.Tensor,
-        b_enc: torch.Tensor,
-        W_dec: torch.Tensor,
-        b_dec: torch.Tensor,
-        cache: CacheBoxes,
-        options: ForwardOptions,
-        **cache_kwargs
-    ):
+    x: torch.Tensor,
+    gate: torch.Tensor,
+    W_enc: torch.Tensor,
+    b_enc: torch.Tensor,
+    W_dec: torch.Tensor,
+    b_dec: torch.Tensor,
+    cache: CacheBoxes,
+    options: ForwardOptions,
+    **cache_kwargs
+):
     # x: (batches, d_data)
     # gate: (batches, n_sae)
     assert x.ndim == 2
@@ -27,8 +27,8 @@ def sparse_forward_triton(
     n_sae = options.n_sae
     # gate = gate.transpose(0, 1)
 
-    gate = gate.unsqueeze(0) # (1 batch, n_sae)
-    flat_indices = (gate > 0).to_sparse().indices()  
+    gate = gate.unsqueeze(0)  # (1 batch, n_sae)
+    flat_indices = (gate > 0).to_sparse().indices()
     # gate = gate.unsqueeze(-1).unsqueeze(-1)
     ###
     # batch_idxs = flat_indices[1]
@@ -43,16 +43,27 @@ def sparse_forward_triton(
     #     x_cent = x_cent - b_dec_flat
 
     # x to 1, b, 1, 1, d
-    b_enc_spm = einops.rearrange(b_enc, 'n_sae d_dict        -> 1       1     n_sae 1      d_dict')
-    x_spm = einops.rearrange(x,         'batch d_data        -> 1       batch 1     1      d_data')
-    W_enc_spm = einops.rearrange(W_enc, 'n_sae d_data d_dict -> 1       1     n_sae d_data d_dict')
-    W_dec_spm = einops.rearrange(W_dec, 'n_sae d_dict d_data -> n_sae   1     1     d_dict d_data')
-    b_dec_spm = einops.rearrange(b_dec, 'n_sae d_data        -> n_sae   1     1     1      d_data')
-    
+    b_enc_spm = einops.rearrange(
+        b_enc, "n_sae d_dict        -> 1       1     n_sae 1      d_dict"
+    )
+    x_spm = einops.rearrange(
+        x, "batch d_data        -> 1       batch 1     1      d_data"
+    )
+    W_enc_spm = einops.rearrange(
+        W_enc, "n_sae d_data d_dict -> 1       1     n_sae d_data d_dict"
+    )
+    W_dec_spm = einops.rearrange(
+        W_dec, "n_sae d_dict d_data -> n_sae   1     1     d_dict d_data"
+    )
+    b_dec_spm = einops.rearrange(
+        b_dec, "n_sae d_data        -> n_sae   1     1     1      d_data"
+    )
+
     pre_acts = masked_matmul(x_spm, W_enc_spm, mask_indices=flat_indices)
-    acts = options.nonlinearity(pre_acts + b_enc_spm * (gate > 0).unsqueeze(-1).unsqueeze(-1))
-    
-    
+    acts = options.nonlinearity(
+        pre_acts + b_enc_spm * (gate > 0).unsqueeze(-1).unsqueeze(-1)
+    )
+
     # if cache.acts:
     #     cache.acts << full_acts(flat_acts, flat_indices, batches, options=options).float()
     # if cache.flat_acts:
@@ -65,7 +76,9 @@ def sparse_forward_triton(
     # else:
     #     flat_acts = flat_acts * (gate[sae_idxs, batch_idxs] > 0)
 
-    acts_spm = einops.rearrange(acts, '1 batch n_sae 1 d_dict -> n_sae batch 1 1 d_dict')
+    acts_spm = einops.rearrange(
+        acts, "1 batch n_sae 1 d_dict -> n_sae batch 1 1 d_dict"
+    )
     m = masked_matmul(acts_spm, W_dec_spm, mask_indices=torch.flip(flat_indices, (0,)))
     saes_out = m + b_dec_spm * (gate > 0).transpose(0, -1).unsqueeze(-1).unsqueeze(-1)
     # x_out = torch.scatter_add(
@@ -74,24 +87,27 @@ def sparse_forward_triton(
     #     batch_idxs.reshape(flatsize, 1).expand(-1, d_data),
     #     saes_out_flat.reshape(flatsize, d_data),
     # )
-    x_out = einops.rearrange(saes_out, 'n_sae batch 1 1 d_data -> batch n_sae d_data').sum(1)
+    x_out = einops.rearrange(
+        saes_out, "n_sae batch 1 1 d_data -> batch n_sae d_data"
+    ).sum(1)
     return x_out
 
 
 from nqgl.mlutils.time_gpu import TimedFunc, timedfunc_wrapper
 
+
 @timedfunc_wrapper()
 def sparse_forward_triton_sp_internal(
-        x: torch.Tensor, 
-        gate: torch.Tensor, 
-        W_enc: torch.Tensor,
-        b_enc: torch.Tensor,
-        W_dec: torch.Tensor,
-        b_dec: torch.Tensor,
-        cache: CacheBoxes,
-        options: ForwardOptions,
-        **cache_kwargs
-    ):
+    x: torch.Tensor,
+    gate: torch.Tensor,
+    W_enc: torch.Tensor,
+    b_enc: torch.Tensor,
+    W_dec: torch.Tensor,
+    b_dec: torch.Tensor,
+    cache: CacheBoxes,
+    options: ForwardOptions,
+    **cache_kwargs
+):
     # x: (batches, d_data)
     # gate: (batches, n_sae)
     assert x.ndim == 2
@@ -100,8 +116,8 @@ def sparse_forward_triton_sp_internal(
     device = x.device
     n_sae = options.n_sae
 
-    gate = gate.unsqueeze(0) # (1 batch, n_sae)
-    flat_indices = (gate > 0).to_sparse().indices()  
+    gate = gate.unsqueeze(0)  # (1 batch, n_sae)
+    flat_indices = (gate > 0).to_sparse().indices()
     # gate = gate.unsqueeze(-1).unsqueeze(-1)
     ###
     sae_idxs = flat_indices[2]
@@ -109,30 +125,40 @@ def sparse_forward_triton_sp_internal(
     flatsize = flat_indices.shape[1]
 
     # x to 1, b, 1, 1, d
-    b_enc_spm = einops.rearrange(b_enc, 'n_sae d_dict        -> 1       1     n_sae 1      d_dict')
-    x_spm = einops.rearrange(x,         'batch d_data        -> 1       batch 1     1      d_data')
-    W_enc_spm = einops.rearrange(W_enc, 'n_sae d_data d_dict -> 1       1     n_sae d_data d_dict')
-    W_dec_spm = einops.rearrange(W_dec, 'n_sae d_dict d_data -> n_sae       1     1 d_dict d_data')
-    b_dec_spm = einops.rearrange(b_dec, 'n_sae d_data        -> n_sae       1     1 1      d_data')
+    b_enc_spm = einops.rearrange(
+        b_enc, "n_sae d_dict        -> 1       1     n_sae 1      d_dict"
+    )
+    x_spm = einops.rearrange(
+        x, "batch d_data        -> 1       batch 1     1      d_data"
+    )
+    W_enc_spm = einops.rearrange(
+        W_enc, "n_sae d_data d_dict -> 1       1     n_sae d_data d_dict"
+    )
+    W_dec_spm = einops.rearrange(
+        W_dec, "n_sae d_dict d_data -> n_sae       1     1 d_dict d_data"
+    )
+    b_dec_spm = einops.rearrange(
+        b_dec, "n_sae d_data        -> n_sae       1     1 1      d_data"
+    )
     masked_mm = TimedFunc(masked_matmul)
     pre_acts = masked_mm(
-        x_spm, 
-        W_enc_spm, 
+        x_spm,
+        W_enc_spm,
         mask_indices=flat_indices,
-        sparse_out=True, 
+        sparse_out=True,
     )
     # print("b_enc[sae_idxs].unsqueeze(-2)", b_enc[sae_idxs].unsqueeze(-2).shape)
     acts = options.nonlinearity(pre_acts + b_enc[sae_idxs].unsqueeze(-2))
     assert acts.shape[0] == flatsize
     # print("pre_acts", pre_acts.shape)
     # print("acts", acts.shape)
-    
+
     m = masked_mm(
-        acts, 
-        W_dec_spm, 
-        mask_indices=flat_indices.flip(0), # 1 batch n_sae 
+        acts,
+        W_dec_spm,
+        mask_indices=flat_indices.flip(0),  # 1 batch n_sae
         flat_p_B1_dim=batches,
-        sparse_out=True, 
+        sparse_out=True,
     )
     saes_out_flat = m + b_dec[sae_idxs].unsqueeze(-2)
     # print(m.shape, b_dec[sae_idxs].shape)
@@ -147,7 +173,6 @@ def sparse_forward_triton_sp_internal(
     return x_out
 
 
-
 def main():
     mask = torch.zeros(2, 2, 2)
 
@@ -155,7 +180,6 @@ def main():
     mask[0, 1, 1] = 1
     mask[1, 0, 0] = 1
     mask[1, 1, 1] = 1
-
 
     # p[:, :, :, :, :5] = torch.eye(5) * (4 + 1)
     # p[0,0,0, :, :5] = torch.eye(5) * (69)
@@ -183,8 +207,10 @@ def main():
     print(o)
     print(out_full - o)
 
-    test_sparse_forward_validity(sparse_forward_triton_sp_internal, caching=False)
-    test_speed2(sparse_forward_triton_sp_internal)
+    # test_sparse_forward_validity(sparse_forward_triton_sp_internal, caching=False)
+    # test_speed_forward(sparse_forward_triton)
+    test_speed_forward(sparse_forward_triton_sp_internal)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
