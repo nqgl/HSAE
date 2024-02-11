@@ -7,7 +7,14 @@ from torch import Tensor
 import einops
 
 from nqgl.sae.hsae.spbmbmm.fwd_params import CacheBoxes, ForwardOptions
-from nqgl.mlutils.time_gpu import TimedFunc, timedfunc_wrapper
+from nqgl.mlutils.time_gpu import (
+    TimedFunc,
+    timedfunc_wrapper,
+    profilefunc_wrapper,
+    ProfileFunc,
+)
+
+torch.set_default_dtype(torch.bfloat16)
 
 
 def full_acts(flat_acts, flat_indices, batches, options: ForwardOptions):
@@ -26,7 +33,7 @@ def sparse_forward(
     b_dec: torch.Tensor,
     cache: CacheBoxes,
     options: ForwardOptions,
-    **cache_kwargs
+    **cache_kwargs,
 ):
     # x: (batches, d_data)
     # gate: (batches, n_sae)
@@ -67,7 +74,7 @@ def sparse_forward(
     W_dec_flat = W_dec[sae_idxs]
     b_dec_flat = b_dec[sae_idxs].unsqueeze(-2)
 
-    x_cent = x_flat.float()  # - b_dec
+    x_cent = x_flat  # - b_dec
     if options.sub_b_dec:
         x_cent = x_cent - b_dec_flat
 
@@ -77,9 +84,7 @@ def sparse_forward(
     assert not torch.any(torch.isnan(flat_acts))
 
     if cache.acts:
-        cache.acts << (
-            full_acts(flat_acts, flat_indices, batches, options=options).float()
-        )
+        cache.acts << (full_acts(flat_acts, flat_indices, batches, options=options))
     if cache.flat_acts:
         cache.flat_acts << flat_acts
 
@@ -147,7 +152,7 @@ def sparse_jit_forward(options):
         W_dec_flat = W_dec[sae_idxs]
         b_dec_flat = b_dec[sae_idxs].unsqueeze(-2)
 
-        x_cent = x_flat.float()  # - b_dec
+        x_cent = x_flat  # - b_dec
         if options.sub_b_dec:
             x_cent = x_cent - b_dec_flat
 
@@ -155,7 +160,7 @@ def sparse_jit_forward(options):
         flat_acts = options.nonlinearity(m + b_enc_flat)
 
         # if cache.acts:
-        #     cache.acts << full_acts(flat_acts, flat_indices, batches, options=options).float()
+        #     cache.acts << full_acts(flat_acts, flat_indices, batches, options=options)
         # if cache.flat_acts:
         #     cache.flat_acts << flat_acts
 
@@ -219,9 +224,9 @@ def sparse_jit_forward(options):
         b_dec = b_dec.unsqueeze(-2)
         b_enc = b_enc.unsqueeze(-2)
 
-        x_cent = x.float()
+        x_cent = x
         if options.sub_b_dec:
-            x_cent = x_cent - b_dec.float()
+            x_cent = x_cent - b_dec
 
         m = x_cent @ W_enc
         acts = F.relu(m + b_enc)
@@ -252,7 +257,7 @@ def sparse_bgate_forward(
     b_dec: torch.Tensor,
     cache: CacheBoxes,
     options: ForwardOptions,
-    **cache_kwargs
+    **cache_kwargs,
 ):
     # x: (batches, d_data)
     # gate: (batches, n_sae)
@@ -280,7 +285,7 @@ def sparse_bgate_forward(
     # flat_acts = encode_flat(
     #     x=x_flat, W_enc=W_enc_flat, b_dec=b_dec_flat, b_enc=b_enc_flat
     # )
-    x_cent = x_bg.float()  # - b_dec
+    x_cent = x_bg  # - b_dec
     m = x_cent @ W_enc_bg
     flat_acts = options.nonlinearity(m + b_enc_bg)
     assert not torch.any(torch.isinf(flat_acts))
@@ -310,11 +315,11 @@ def dense(
     b_dec = b_dec.unsqueeze(-2)
     b_enc = b_enc.unsqueeze(-2)
 
-    x_cent = x.float()
+    x_cent = x
     if options.sub_b_dec:
-        x_cent = x_cent - b_dec.float()
+        x_cent = x_cent - b_dec
     m = x_cent @ W_enc
-    print("mshape", m.shape)
+    # print("mshape", m.shape)
     acts = F.relu(m + b_enc)
     if cache.acts:
         cache.acts << acts.squeeze(-2)  # * (gate.squeeze(-2) > 0)
@@ -349,10 +354,10 @@ def dense_einops(
 
     x_cent = x
     if options.sub_b_dec:
-        x_cent = x_cent - b_dec.float()
+        x_cent = x_cent - b_dec
 
     m = x_cent @ W_enc
-    print("mshape", m.shape)
+    # print("mshape", m.shape)
 
     acts = F.relu(m + b_enc)
     if cache.acts:
@@ -366,12 +371,12 @@ def dense_einops(
     else:
         acts = acts * (gate > 0)
     # saes_out = (acts @ W_dec + b_dec * (gate > 0))
-    print("b_dec pre", b_dec.shape)
-    print("gate", gate.shape)
+    # print("b_dec pre", b_dec.shape)
+    # print("gate", gate.shape)
     b_dec = b_dec * gate
 
-    print("acts", acts.shape)
-    print("W_dec", W_dec.shape)
+    # print("acts", acts.shape)
+    # print("W_dec", W_dec.shape)
     # saes_out = einops.einsum(
     #     acts.squeeze(-2), W_dec, "b n_sae d_dict, n_sae d_dict d_model -> b d_model"
     # )
@@ -383,10 +388,10 @@ def dense_einops(
     acts_re = einops.rearrange(acts.squeeze(-2), "b n_sae d_dict -> b (n_sae d_dict)")
     W_dec_re = einops.rearrange(W_dec, "n_sae d_dict d_model -> (n_sae d_dict) d_model")
     saes_out = acts_re @ W_dec_re + b_dec.squeeze(-2).sum(dim=-2)
-    print("b_dec", b_dec.shape)
-    print("saes out", saes_out.shape)
-    # saes_out = saes_out + b_dec.squeeze(dim=-2).sum(dim=-2)
-    print("saes out", saes_out.shape)
+    # print("b_dec", b_dec.shape)
+    # print("saes out", saes_out.shape)
+    # # saes_out = saes_out + b_dec.squeeze(dim=-2).sum(dim=-2)
+    # print("saes out", saes_out.shape)
     # saes_out = (gate > 0) * (acts @ W_dec + b_dec)
     return saes_out
 
@@ -439,7 +444,7 @@ def generate_example(
         d_dict=d_dict,
         n_sae=n_sae,
         device=device,
-        **optionsdict
+        **optionsdict,
     )
 
     return o
@@ -528,10 +533,10 @@ def comptime(o, *F, cache=True, backward=False, optim=False, skipoptions=False):
                 W_dec=o.W_dec.clone(),
                 b_dec=o.b_dec.clone(),
                 cache=c,
-                **opts
+                **opts,
             )
             if backward:
-                v = (x.float() - y.float()).pow(2).sum()
+                v = (x - y).pow(2).sum()
                 v.backward()
                 if optim:
                     optim.step()
@@ -542,16 +547,57 @@ def comptime(o, *F, cache=True, backward=False, optim=False, skipoptions=False):
         torch.cuda.empty_cache()
 
 
+def comptime_dry(o, *F, cache=True, backward=False, optim=False, skipoptions=False):
+    if cache:
+        caches = [CacheBoxes(box(), box()) for _ in F]
+    else:
+        caches = [CacheBoxes() for _ in F]
+    for f, c in list(zip(F, caches)) * 1:
+        print(f.__name__, end=" ")
+        if optim:
+            optim = torch.optim.SGD(
+                [o.W_enc, o.b_enc, o.W_dec, o.b_dec, o.srcgate], lr=1e-6
+            )
+            optim.zero_grad()
+        for x, gmask in zip(o.X, o.gmasks):
+            if skipoptions:
+                opts = {}
+            else:
+                opts = {"options": o.options}
+            y = f(
+                x=x,
+                gate=torch.abs(o.srcgate) * gmask.clone().detach().clone(),
+                W_enc=o.W_enc.clone(),
+                b_enc=o.b_enc.clone(),
+                W_dec=o.W_dec.clone(),
+                b_dec=o.b_dec.clone(),
+                cache=c,
+                **opts,
+            )
+            if backward:
+                v = (x - y).pow(2).sum()
+                v.backward()
+                if optim:
+                    optim.step()
+                    optim.zero_grad()
+
+
 def test_speed(afunc=sparse_forward):
-    d_dict = 64
-    d_data = 768
-    n_sae = 1024
-    batches = 128
+    d_dict = 32
+    d_data = 256
+    n_sae = 512
+    batches = 32
     device = "cuda"
     p_sparse = 0.98
 
     o = generate_example(
-        d_dict, d_data, n_sae, batches, p_sparse, device=device, requires_grad=True
+        d_dict,
+        d_data,
+        n_sae,
+        batches,
+        p_sparse,
+        device=device,
+        requires_grad=True,
     )
 
     # comptime(o, sparse_forward, dense, sparse_bgate_forward, cache=True, backward=False)
@@ -571,15 +617,17 @@ def test_speed(afunc=sparse_forward):
         #     comptime(
         #         o, jitforward, skipoptions=True, cache=True, backward=True, optim=True
         #     )
-        for _ in range(reps2):
-            comptime(o, afunc, cache=True, backward=True, optim=True)
+        # ct = ProfileFunc(comptime_dry, name=f"comptime_dry<{afunc.__name__}>")
 
+        # ct = ProfileFunc(comptime_dry, name=f"comptime_dry<{sparse_forward.__name__}>")
         for _ in range(reps2):
             comptime(o, sparse_forward, cache=True, backward=True, optim=True)
         for _ in range(reps2):
-            comptime(o, dense, cache=True, backward=True, optim=True)
-        for _ in range(reps2):
             comptime(o, dense_einops, cache=True, backward=True, optim=True)
+        for _ in range(reps2):
+            comptime(o, afunc, cache=True, backward=True, optim=True)
+        for _ in range(reps2):
+            comptime(o, dense, cache=True, backward=True, optim=True)
         for _ in range(reps2):
             comptime(o, sparse_bgate_forward, cache=True, backward=True, optim=True)
 
